@@ -1,0 +1,103 @@
+### all lines containing cheat:
+ 35113| e("HYHttpMgr").clientlog("cheat_enprice", t);
+ 42883| ACCOUNT_CHEAT: {
+ 43330| e("HYHttpMgr").clientlog("cheat_consume", n, null);
+ 44102| setCheat: function(t) {
+ 44104| account_cheat: 1,
+ 44108| cheat_tick: 8,
+ 44109| cheat_enprice: 16,
+ 44110| cheat_deprice: 32
+ 44113| var i = e("HYData").get("base.cheat") | n;
+ 44114| e("HYData").set("base.cheat", i);
+ 46697| !n.mData.base.cheat && n.set("base.cheat", 0);
+ 50159| e("HYHttpMgr").clientlog("cheat_tick", t, null, n, i, o);
+ 50160| e("DY").cache.ignoreTimeCheat || 3 != t || e("HYCommon").alert(null, e("DY").i18n.t("S_875"), null, function() {
+ 50947| (a.curGold >= 3e4 || a.costGold >= 14257 || a.curGold < 0) && this.clientlog("cheat_consume", a.curGold, null, a.costGold, a.reasonId, JSON.stringify(a));
+ 51123| e("HYCommon").setCheat(t);
+ 77969| i._checkIfCheat(a, function(t) {
+ 78092| _checkIfCheat: function(t, n) {
+ 80925| e("DY").cache.ignoreTimeCheat = t.data.ignoreTimeCheat || 0;
+122213| e("HYHttpMgr").clientlog("account_cheat", "", null, n, "");
+
+### clientlog full function:
+ 51120| },
+ 51121| clientlog: function(t, n, i, a, r, s) {
+ 51122| if (o) {
+ 51123| e("HYCommon").setCheat(t);
+ 51124| var c = o + "/user/clientlog", l = {
+ 51125| type: t,
+ 51126| content: n,
+ 51127| aliveTime: e("HYTime").day(),
+ 51128| param1: a || "",
+ 51129| param2: r || "",
+ 51130| param3: s || ""
+ 51131| };
+ 51132| this._requestCommon(function(e, t) {
+ 51133| i && i(e, t);
+ 51134| }, l, c, "POST");
+ 51135| }
+ 51136| },
+ 51137| clientfankui: function(e, t, n, i, o) {
+ 51138| var a = {
+ 51139| type: "clientfankui",
+ 51140| content: e,
+ 51141| aliveTime: 0,
+ 51142| param1: n || "",
+ 51143| param2: i || "",
+ 51144| param3: o || ""
+ 51145| };
+ 51146| this._requestCommon(function(e, n) {
+ 51147| t && t(e, n);
+ 51148| }, a, "https://stest.dayukeji.com:7406/Logic/user/clientlog", "POST");
+ 51149| },
+ 51150| selectBranch: function(e, t, n) {
+ 51151| var i = o + "/user/selectbranch", a = {
+ 51152| storyId: e,
+ 51153| branchId: t
+ 51154| };
+ 51155| this._requestCommon(n, a, i, "GET");
+ 51156| },
+ 51157| storyBranch: function(e, t) {
+ 51158| var n = o + "/user/storybranch", i = {
+ 51159| storyId: e
+ 51160| };
+ 51161| this._requestCommon(t, i, n, "GET");
+ 51162| },
+ 51163| getTreasure: function(e, t, n, i) {
+ 51164| var a = o + "/user/opentreasurebox", r = {
+ 51165| isFree: e,
+ 51166| count: n,
+ 51167| locked: JSON.stringify(t)
+ 51168| };
+ 51169| this._requestCommon(i, r, a, "POST");
+ 51170| },
+ 51171| treasureConfig: function(e) {
+ 51172| var t = o + "/user/treasureconfig";
+ 51173| this._requestCommon(e, {}, t, "GET");
+ 51174| },
+ 51175| queryUserNick: function(e, t) {
+ 51176| var n = a + "/user/getnick", i = {
+ 51177| queryUid: e
+ 51178| };
+ 51179| this._requestCommon(t, i, n, "GET");
+ 51180| },
+ 51181| logItem: function(e, t, n, i) {
+ 51182| var a = o + "/user/logitem", r = {
+ 51183| itemId: e,
+ 51184| change: t,
+ 51185| curCount: n
+ 51186| };
+ 51187| this._requestCommon(i, r, a, "GET");
+ 51188| },
+ 51189| updateDungeonScore: function(e, t, n, i) {
+ 51190| var a = o + "/user/updatedungeonscore", r = {
+ 51191| nick: e,
+ 51192| dungeon: t,
+ 51193| score: n
+ 51194| };
+ 51195| this._requestCommon(i, r, a, "POST");
+ 51196| },
+ 51197| getDungeonRanking: function(e, t) {
+ 51198| var n = o + "/user/dungeonranking", i = {
+ 51199| dungeon: e
+ 51200| };

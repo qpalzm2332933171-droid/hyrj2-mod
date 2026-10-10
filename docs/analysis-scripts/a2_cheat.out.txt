@@ -1,0 +1,145 @@
+############ cheat (total 13)
+   35112| if (!t) {
+>> 35113| e("HYHttpMgr").clientlog("cheat_enprice", t);
+   35114| return "";
+   35115| }
+   35116| var n = t + "";
+   35117| for (var i in c) c[i] && (n = n.replaceAll(i, c[i]));
+   35118| return n;
+   35119| },
+   35120| decodePrice: function(e) {
+   35121| if (!e) return "";
+   35122| var t = e + "";
+--------------------------------------------------
+   43329| if (n >= 3e4 || n < 0) {
+>> 43330| e("HYHttpMgr").clientlog("cheat_consume", n, null);
+   43331| n = 0;
+   43332| }
+   43333| return n;
+   43334| },
+   43335| updateDiamondNum: function(t, n, i, o) {
+   43336| var a = arguments.length > 4 && void 0 !== arguments[4] && arguments[4], r = this, s = r.getDiamondNum();
+   43337| if (0 == (t = parseInt(t) || 0)) {
+   43338| o && o(s, {});
+   43339| return s;
+--------------------------------------------------
+   44103| var n = {
+>> 44104| account_cheat: 1,
+   44105| modify_achieve: 2,
+   44106| modify_mission: 4,
+   44107| modify_activites: 5,
+   44108| cheat_tick: 8,
+   44109| cheat_enprice: 16,
+   44110| cheat_deprice: 32
+   44111| }[t];
+   44112| if (n) {
+   44113| var i = e("HYData").get("base.cheat") | n;
+--------------------------------------------------
+   44107| modify_activites: 5,
+>> 44108| cheat_tick: 8,
+   44109| cheat_enprice: 16,
+   44110| cheat_deprice: 32
+   44111| }[t];
+   44112| if (n) {
+   44113| var i = e("HYData").get("base.cheat") | n;
+   44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+--------------------------------------------------
+   44108| cheat_tick: 8,
+>> 44109| cheat_enprice: 16,
+   44110| cheat_deprice: 32
+   44111| }[t];
+   44112| if (n) {
+   44113| var i = e("HYData").get("base.cheat") | n;
+   44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+--------------------------------------------------
+   44109| cheat_enprice: 16,
+>> 44110| cheat_deprice: 32
+   44111| }[t];
+   44112| if (n) {
+   44113| var i = e("HYData").get("base.cheat") | n;
+   44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+   44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+--------------------------------------------------
+   44112| if (n) {
+>> 44113| var i = e("HYData").get("base.cheat") | n;
+   44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+   44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+   44120| var t = e("DY").theRoot.node;
+   44121| return t.height / t.width < 2;
+   44122| }
+--------------------------------------------------
+   44113| var i = e("HYData").get("base.cheat") | n;
+>> 44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+   44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+   44120| var t = e("DY").theRoot.node;
+   44121| return t.height / t.width < 2;
+   44122| }
+   44123| return !1;
+--------------------------------------------------
+   46696| });
+>> 46697| !n.mData.base.cheat && n.set("base.cheat", 0);
+   46698| (!n.mData.base.lottery || !n.mData.base.lottery.lock) && n.set("base.lottery", {
+   46699| freeTime: 0,
+   46700| freeTimeSign: 0,
+   46701| isShowAni: 1,
+   46702| lock: {},
+   46703| lucky: 0
+   46704| });
+   46705| !n.mData.base.limitGift && n.set("base.limitGift", {
+   46706| dungeonStory: {},
+--------------------------------------------------
+   50158| }, function(t, n, i, o) {
+>> 50159| e("HYHttpMgr").clientlog("cheat_tick", t, null, n, i, o);
+   50160| e("DY").cache.ignoreTimeCheat || 3 != t || e("HYCommon").alert(null, e("DY").i18n.t("S_875"), null, function() {
+   50161| e("HYTime").stop();
+   50162| e("HYData").trySave();
+   50163| e("HYCommon").transitionTo("Main");
+   50164| e("DungeonMgr").clear();
+   50165| });
+   50166| });
+   50167| "debug" == e("DY").utils.gameMode() && (window.require = e);
+   50168| var s = !1;
+--------------------------------------------------
+   50946| this._requestCommon(t, a, i, "GET");
+>> 50947| (a.curGold >= 3e4 || a.costGold >= 14257 || a.curGold < 0) && this.clientlog("cheat_consume", a.curGold, null, a.costGold, a.reasonId, JSON.stringify(a));
+   50948| },
+   50949| logEndlessAward: function(e, t, n) {
+   50950| var i = o + "/user/logendlessaward", a = {};
+   50951| a.alive_day = t;
+   50952| a.award_id = n;
+   50953| this._requestCommon(e, a, i, "GET");
+   50954| },
+   50955| logHotfixTime: function(t, n, i) {
+   50956| var o = a + "/user/hotfixpoint";
+--------------------------------------------------
+  122212| if ("7d6dfe230ee6e39291c6738689b562fe" != n) {
+>>122213| e("HYHttpMgr").clientlog("account_cheat", "", null, n, "");
+  122214| return !1;
+  122215| }
+  122216| }
+  122217| return !0;
+  122218| },
+  122219| _showSign: function() {
+  122220| e("CtrlSign").tryShowSign();
+  122221| },
+  122222| _showGift: function() {
+--------------------------------------------------

@@ -1,0 +1,166 @@
+--- apk
++++ hot
+@@ -2389,5 +2389,5 @@
+ i.config = {
+ GAME_ID: "2601",
+-GAME_VER: "0.0.7.101202",
++GAME_VER: "0.0.8.070501",
+ SAVE_ID: 0,
+ CHARACTER: {
+@@ -34841,5 +34841,5 @@
+ "9": "c",
+ "0": "t"
+-}, l = [ "100007", "100008", "100004", "100001", "100003" ], d = {
++}, l = [ "100007", "100008", "100004", "100001", "100003", "100006" ], d = {
+ mOpenId: null,
+ mGameId: null,
+@@ -35288,5 +35288,5 @@
+ },
+ GAME_ID: "2601",
+-GAME_VER: "0.0.7.101202",
++GAME_VER: "0.0.8.070501",
+ VERSION_AN_TEST: "0.0.1.3.19030501",
+ VERSION_AN_UPDATE: "0.0.1.3.19030501",
+@@ -50622,6 +50622,5 @@
+ openId: e("DY").cache.openId,
+ paymentId: n.id,
+-money: n.price,
+-apkVer: e("DY").utils.getParamExt("K_PACKAGE_VERSION") || ""
++money: n.price
+ };
+ this._requestCommon(function(e, n) {
+@@ -50629,12 +50628,11 @@
+ }, a, i, "POST");
+ },
+-checkOrder: function(t, n) {
+-var i = o + "/payment/checkorder", a = {
+-appOrderId: t,
+-apkVer: e("DY").utils.getParamExt("K_PACKAGE_VERSION") || ""
+-};
+-this._requestCommon(function(e, t) {
+-n && n(e, t);
+-}, a, i, "POST");
++checkOrder: function(e, t) {
++var n = o + "/payment/checkorder", i = {
++appOrderId: e
++};
++this._requestCommon(function(e, n) {
++t && t(e, n);
++}, i, n, "POST");
+ },
+ tryPay: function(t, n) {
+@@ -57308,5 +57306,5 @@
+ var i = function() {
+ function t(t, n, i) {
+-var o = [ "根据国家相关规定，实名认证后方可进入游戏。您还没有实名认证，无法进入游戏。", "您的账号已被纳入防沉迷系统，今日游戏时间为20点至21点，请合理安排游戏时间。", "您的账号还有5分钟即将被强制下线。", "您的账号已被纳入防沉迷系统，每日消费限额为%d元，每月消费限额为%d元，请注意合理消费。", "您的账号已达到每日消费上限。", "您的账号已达到每月消费上限。", "根据相关规定，您的账号无法充值，请尽快进行实名认证。", "您的账号已到达每日游戏时间上限。", "根据相关规定，您的账号已到达未实名认证账号的累计登录天数上限，无法再次登录。", "您的账号已用完每日游戏时间上限，请在周五、周六、周日的20点至21点再次登陆。", "您的账号已被纳入防沉迷系统，请在周五、周六、周日的20点至21点再次登陆。", "根据国家相关规定，未满8周岁的注册用户禁止登陆该游戏。" ], a = "";
++var o = [ "根据国家相关规定，实名认证后方可进入游戏。", "您的账号已被纳入防沉迷系统，今日游戏时间为20点至21点，请合理安排游戏时间。", "您的账号还有5分钟即将被强制下线。", "您的账号已被纳入防沉迷系统，每日消费限额为%d元，每月消费限额为%d元，请注意合理消费。", "您的账号已达到每日消费上限。", "您的账号已达到每月消费上限。", "根据相关规定，您的账号无法充值，请尽快进行实名认证。", "您的账号已到达每日游戏时间上限。", "根据相关规定，您的账号已到达未实名认证账号的累计登录天数上限，无法再次登录。", "您的账号已用完每日游戏时间上限，请在周五、周六、周日的20点至21点再次登陆。", "您的账号已被纳入防沉迷系统，请在周五、周六、周日的20点至21点再次登陆。", "根据国家相关规定，未满8周岁的注册用户禁止登陆该游戏。" ], a = "";
+ a = 3 == t ? String.format(o[t] || "", n, 4 * n) : String.format(o[t] || "", n);
+ var r = e("DY").cache.uid || e("DYStat").get(e("HYKey").kGameUid, "");
+@@ -57650,5 +57648,5 @@
+ },
+ isDySdk: function() {
+-var t = [ "100001", "100002", "100010" ], n = e("HYChannel").get() + "";
++var t = [ "100001", "100002" ], n = e("HYChannel").get() + "";
+ return t.indexOf(n) >= 0 || n.indexOf("1100") >= 0;
+ }
+@@ -77018,4 +77016,16 @@
+ RoleHelper: "RoleHelper"
+ } ],
++NavToCode: [ function(e, t, n) {
++"use strict";
++cc._RF.push(t, "3f9b6hP5EFARIL869SVrAaX", "NavToCode");
++cc.Class({
++extends: cc.Component,
++properties: {},
++NavToCode: function() {
++cc.sys.openURL("https://beian.miit.gov.cn/#/home");
++}
++});
++cc._RF.pop();
++}, {} ],
+ NodeBlink: [ function(e, t, n) {
+ "use strict";
+@@ -92798,4 +92808,5 @@
+ e("DY").utils.isNeedPowerFirst() && e("DY").utils.userAgreeProcotol();
+ this.mSureFunc && this.mSureFunc();
++this.node.destroy();
+ },
+ onRefuse: function() {
+@@ -101449,25 +101460,14 @@
+ if ("btnReName" == i) n.reName(); else if ("btnOk" == i) {
+ var o = n.editName.string;
+-window.DYH5 && window.DYH5.checkWord ? window.DYH5.checkWord(o, function(t) {
+-n && n.node && (t ? n.onBtnOk(n, o) : e("HYCommon").toast(e("DY").i18n.t("S_432")));
+-}) : e("HYHttpMgr").checkWords(o, function(t) {
+-if (n && n.node) {
+-n.editName.string = t.text;
+-t.isVaild ? n.onBtnOk(n, o) : e("HYCommon").toast(e("DY").i18n.t("S_432"));
+-}
+-});
+-}
+-},
+-onBtnOk: function(t, n) {
+-t.btnOk.interactable = !1;
+-e("HYHttpMgr").updateNick(encodeURIComponent(n), function(i, o) {
+-t.btnOk.interactable = !0;
+-if (0 == o.errorCode) {
+-e("DY").cache.nick = n;
++n.btnOk.interactable = !1;
++e("HYHttpMgr").updateNick(encodeURIComponent(o), function(t, i) {
++n.btnOk.interactable = !0;
++if (0 == i.errorCode) {
++e("DY").cache.nick = o;
+ e("HYCommon").toast(e("DY").i18n.t("S_341"));
+-t.node.destroy();
++n.node.destroy();
+ var a = e("DY").cache, r = {
+ uid: a.uid,
+-nick: encodeURIComponent(n),
++nick: encodeURIComponent(o),
+ openId: a.openId,
+ level: 1,
+@@ -101477,7 +101477,8 @@
+ };
+ e("DY").utils.getParamExt("K_SDK_REPORT", JSON.stringify(r));
+-t.helpFriend();
+-} else 1001 == o.errorCode ? e("HYCommon").toast(e("DY").i18n.t("S_342")) : e("HYCommon").toast(e("DY").i18n.t("S_343"));
+-});
++n.helpFriend();
++} else 1001 == i.errorCode ? e("HYCommon").toast(e("DY").i18n.t("S_342")) : e("HYCommon").toast(e("DY").i18n.t("S_343"));
++});
++}
+ },
+ reName: function() {
+@@ -113967,5 +113968,5 @@
+ if (!t) {
+ var i = e("HYDialogMgr").getDialog("SceneMain");
+-cc.isValid(i) ? i.addChild(n, e("DY").layer.UI - 1) : n.destroy();
++cc.isValid(i) ? i.addChild(n, e("DY").layer.TIP) : n.destroy();
+ }
+ });
+@@ -122311,5 +122312,5 @@
+ if (!n.mIsCanEnterGameMode) return;
+ n._checkMainJs() && n._endlessMode();
+-} else if ("btnShop" == i.name) {
++} else if ("btnChallenge" == i.name) e("HYCommon").toast(e("DY").i18n.t("S_788")); else if ("btnShop" == i.name) {
+ o.playEffectByName("pay");
+ n._showShop();
+@@ -131078,4 +131079,6 @@
+ S_825: "双倍领取",
+ S_826: "免费补给",
++S_988: "适龄提示",
++S_989: "1.本游戏是一款简单的生存模拟游戏，适用于满12周岁及以上的用户 \n2.本游戏为虚构架空的中世纪题材，画风写实，有一定量的剧情内容。游戏玩法基于生存和模拟经营玩法，无历史上相关的人物或者事件。游戏中无社交系统。 \n3.游戏中部分道具需要付费。未满8周岁的用户不能付费；8周岁以上未满12周岁的未成年用户，单次充值金额不得超过50元人民币，每月充值金额累计不得超过200元人民币；12周岁以上的未成年用户，单次充值金额不得超过100元人民币，每月充值金额累计不得超过400元人民币。 \n4.本游戏以在末世生存和探索为主，主角带着生病的女儿在满目疮痍的末世生存，并试图找到根治女儿身患疾病的办法，在路途上会遇到形形色色的角色并了解和体验他们的故事，让玩家对于在末世环境中艰难生存的父女产生共情，了解到生存不易进而了解到应该珍惜生活中一切美好的事物。",
+ sign_loop_1: "鉴往知来，事半功倍！\n补充经验1000点。",
+ sign_loop_2: "回忆之所以是回忆，因为是回不去的记忆。\n角色觉醒道具，可用于任意角色。",
+@@ -131247,6 +131250,4 @@
+ S_986: "广告抽奖",
+ S_987: "免費抽！",
+-S_988: "适龄提示",
+-S_989: "1.本游戏是一款简单的生存模拟游戏，适用于满12周岁及以上的用户 \n2.本游戏为虚构架空的中世纪题材，画风写实，有一定量的剧情内容。游戏玩法基于生存和模拟经营玩法，无历史上相关的人物或者事件。游戏中无社交系统。 \n3.游戏中有用户实名认证系统,认证为未成年人的用户将接受以下管理：\n游戏中部分玩法和道具需要付费,未满8周岁的用户不能付费；8岁以上未满16周的未成年人用户,单次充值金额不得超过50元人民币,每月充值金额累计不得超过200元人民币；16周岁以上的未成年人用户,单次充值金额不得超过100元人民币，每月充值金额累计不得超过400元人民币。\n未成年人帐号仅可在周五、周六、周日和法定节假日每日20时至21时向未成年人提供1小时网络游戏服务 \n4.本游戏以在末世生存和探索为主，主角带着生病的女儿在满目疮痍的末世生存，并试图找到根治女儿身患疾病的办法，在路途上会遇到形形色色的角色并了解和体验他们的故事，让玩家对于在末世环境中艰难生存的父女产生共情，了解到生存不易进而了解到应该珍惜生活中一切美好的事物。",
+ cond_desc_1: "今日历史课堂",
+ cond_desc_15: "完成废墟后解锁",
+@@ -142271,3 +142272,3 @@
+ DYAudio: "DYAudio"
+ } ]
+-}, {}, [ "cn", "AchieveTip", "CellAchieve", "PanelAchieve", "PanelAchieveADReward", "CPropSet", "CtrlActivites", "DefineActivities", "ItemTargetExchange", "ModelExchangeActivity", "PanelActivitesExchange", "ItemActivitesIcon", "ItemTargetAfterTime", "ItemTargetAnswer", "ItemTargetBase", "ItemTargetNormal", "ModelActivites", "PanelActivitesInShop", "PanelActivitesInShopResult", "PanelActivitesItemInfo", "PanelActivities", "PanelActivitiesAnswer", "PanelActivitiesNormal", "PanelAnswerSucc", "ItemTargetSevenDay", "ModelSevenDayActivite", "PanelActivitesSeven", "HYAlchemy", "HYAlchemyLab", "ItemNote", "ItemPotionCatalogue", "PanelAlchemy", "PanelAlchemyLV", "PanelCatalogue", "PanelIngredient", "PanelIngredientBatch", "PanelPotion", "PanelReappearRecipe", "PanelRecipe", "PanelSort", "PanelUsePotion", "WidgetAlchemyBag", "WidgetDecant", "WidgetIdentification", "WidgetIngredient", "WidgetMaterial", "WidgetMix", "WidgetNote", "WidgetPotion", "WidgetProcess", "WidgetSelect", "WidgetSemis", "WidgetStartPage", "ItemAtlas", "ItemAtlasDevice", "PanelAtlas", "PanelAtlasItemTip", "PanelAtlasMonsterTip", "PanelAtlasStoryTip", "SceneAtlas", "PanelBoot", "PanelCG", "PanelGetPower", "PanelHotfix", "SceneBootFake", "Fish", "FishGame", "HuntingDefine", "ItemAnimal", "ItemHuntingBullet", "ModelHunting", "PanelHunting", "ItemChessNode", "ItemCoinNode", "ItemPieceNode", "LigatureCtrl", "MapCoinFlip", "ItemMineral", "ItemMiningBomb", "ModelMining", "PanelMining", "PanelMiningBoxAni", "WidgetCatchObj", "PanelBeastAttack", "PanelCoinFlip", "PanelConfirmExitCase", "PanelFindTheRule", "PanelFollowMe", "PanelHanoiTower", "PanelLigature", "PanelLookForItem", "PanelMakeTrap", "PanelOneTDraw", "PanelPairs", "PanelPuzzle", "PanelSokoban", "PanelThreeRing", "TestShader", "CampsiteADAwards", "Config", "ConfigRoleBust", "Const", "DY", "DialogBase", "DialogJump", "ItemMiniGameUI", "ItemSprite", "PanelADLottery", "PanelAlert", "PanelAutoPause", "PanelBigAlert", "PanelCostGold", "PanelDiscardItem", "PanelExchange", "PanelGoldCoinNotEnough", "PanelHelp", "PanelItemList", "PanelItemSource", "PanelItemTip", "PanelLinkageHyqs", "PanelObtainTips", "PanelPromptBoxWithCoin", "PanelRollingSubtitles", "PanelTipCenter", "PanelTipTop", "PanelTips", "PanelToast", "PanelUserAuth", "PanelWarning", "RealTimer", "TopNavigation", "WidgetAd", "WidgetAudioEffect", "WidgetAudioMusic", "WidgetBagItem", "WidgetContainer", "WidgetContainerBatch", "WidgetItem", "WidgetItemBatch", "WidgetItemPotion", "WidgetTabButton", "CtrlDevice", "PanelDeviceGet", "ItemMineDiary", "ItemSelectedDiary", "ModelDiary", "PanelDiary", "PanelDiaryDetailed", "SceneDiary", "CellCollectionRole", "CellConnecting", "CellDelegateCollect", "CellDungeonCard", "CellDungeonPot", "DungeonMapMgr", "DungeonTargetChecker", "ItemOneDungeon", "ItemOneRole", "ModelDungeon", "PanelDelegateCollect", "PanelDispatchRole", "PanelDungeon", "PanelDungeonBagInfo", "PanelDungeonDesc", "PanelDungeonRanking", "PanelDungeonRoleDetail", "PanelDungeonUnlockTip", "PanelItemLose", "PanelLastDungeonFailed", "PanelRankingHelp", "PanelRoleSelect", "PanelTeamEffectDesc", "SceneDungeon", "WidgetDungeonMap", "WidgetScrollCards", "NodeBlink", "NodeFlash", "NodeShake", "CtrlEndless", "CtrlEndlessRepu", "CtrlEndlessTask", "EndlessDefines", "ItemAward", "ItemDungeonRanking", "ItemEndlessEvent", "ItemEndlessEventSmall", "ItemEndlessTaskIcon", "ItemRanking", "ModelEndless", "ModelEndlessTask", "PanelEndless", "PanelEndlessAreaDesc", "PanelEndlessAward", "PanelEndlessCampInfo", "PanelEndlessExplain", "PanelEndlessMapEvent", "PanelEndlessMood", "PanelEndlessMoveArea", "PanelEndlessNature", "PanelEndlessRanking", "PanelEndlessRefresh", "PanelEndlessRefreshAD", "PanelEndlessReview", "PanelEndlessRoleSelect", "PanelEndlessSaveBackup", "PanelEndlessTask", "PanelEndlessTaskRefesh", "PanelEndlessWorld", "PanelEndlessWorldBG", "PanelEnemyAttackTips", "PanelRepuItemPurchase", "Reputation", "SceneEndless", "ItemEndlessMazeCheckPoint", "ItemGrid", "PanelEndlessMazeGridDetail", "PanelEndlessMazeIntensify", "PanelEndlessMazeMood", "PanelEndlessMazeSelect", "PanelEndlessMazeStorage", "PanelEndlessMazeTheme", "EndlessMazeEvent", "EndlessMazeEventMgr", "PanelRandomEvent", "SceneEndlessMaze", "WidgetEndlessMazeCheckPointMgr", "FightProgress", "ItemAlly", "ItemCollection", "ItemDiary", "ItemEnemy", "ItemFightGrid", "ItemFlash", "ItemPetMode", "ItemPetPos", "ItemRoleActiveSkill", "ItemRoleEquip", "ItemRoleMode", "ItemRolePos", "NpcStage", "PanelBattlePos", "PanelCollect", "PanelFight", "PanelFightGuide", "PanelFightLogV2", "PanelFightTrap", "PanelFish", "PanelFishSupport", "PanelLostWeapon", "PanelPotAni", "PanelPotDetail", "PanelPotRecycle", "PanelPotStorage", "PanelRelic", "PanelRelicResult", "PanelTrapItems", "FriendHelp", "ItemFriendHelp", "LocalFriendHelp", "PanelFriendHelp", "AniEvent", "AniObtainCurrency", "Butterfly", "ItemAniRabbit", "Lamplight", "NodeWaterCtrl", "PanelAniAutoClose", "PanelAniCloud", "PanelAniDungeon609", "PanelAniEagleFly", "PanelAniTimeFly", "PanelBuildAction", "PanelEndlessEnterAni", "PanelFirstInHome1", "PanelPageAni", "PanelPageVideo", "RandGameAniTime", "SmallBirdBehaviour", "WidgetTextFadeOneByOne", "CtrlGuide", "GuideFactory", "GuideLogic", "ModelGuide", "ModelMonolog", "PanelGuide", "PanelMonolog", "CtrlPageEvent", "DungeonConfigMgr", "DungeonMgr", "DungeonMusic", "HomeAniCtrl", "ItemBag", "ItemBuildDetail", "ItemBuildingWaterRole", "ItemDungeronMaterial", "ItemEquipMenu", "ItemEquipMenuChoice", "ItemEquipSubfield", "ItemEquipment", "ItemIcon", "ItemMaterial", "ItemNotEnoughMaterial", "ItemOnePetState", "ItemOneRoleState", "ItemProduct", "ItemRoleBuff", "ItemTalent", "ItemTalentList", "ItemWarehouse", "NodeVisibleByDialog", "PanelBagWarehouse", "PanelBuildBatchProduct", "PanelBuildRestoreDetail", "PanelBuildUpTip", "PanelBuildUpgradeDetail", "PanelBuilding", "PanelBuildingFence", "PanelBuildingPuppetFence", "PanelBuildingWater", "PanelDungeonTarget", "PanelGainTalent", "PanelGoOut", "PanelHome", "PanelHomeNight", "PanelHomeTool", "PanelItemExchange", "PanelItemFriend", "PanelItemFriendHistory", "PanelLucina", "PanelMedicalUnit", "PanelMigrate", "PanelNewDungeonTarget", "PanelPackBag", "PanelRoleBar", "PanelRoleDetail", "PanelRoleGive", "PanelRoleState", "PanelRoleStateDetail", "PanelStateDetail", "PanelTalent", "PanelToolBar", "PanelTopBar", "PanelTrackingTargets", "PanelWareHouse", "PanelWarehouseUpgrade", "PanelWeatherControl", "ProductItemJump", "SceneHome", "MobileNpcEntrance", "NPCHelper", "PanelBlagGive", "PanelFavor", "PanelSelectNum", "PanelTrade", "PanelTradeResult", "TradeHelper", "WidgetItemForTrasaction", "LabyStageBarrier", "LabyStageBase", "LabyStageCollect", "LabyStageCrossing", "LabyStageFight", "LabyStageMiniGame", "LabyStageMirrorFight", "LabyStageUploadMirror", "LabyWDAward", "LabyWDBaseInfo", "LabyWDCollecting", "LabyWDFightReady", "LabyWDMirrorIcon", "LabyWDOptions", "MazeDataHelper", "MazeMgr", "MazeObjects", "MirrorServer", "PanelLabyExit", "PanelLabyrinth", "PanelLoading", "SceneLoading", "CellMail", "PanelMail", "PanelMailDetail", "BogusParentNode", "ItemShowByCondition", "ItemTechnologyProduct", "LoadNotice", "PanelFeedback", "PanelFloatDialog", "PanelMaintain", "PanelMoreInfo", "PanelName", "PanelNotice", "PanelSetting", "PanelSign", "PanelTechExchange", "PanelTechnology", "PanelUserProcotol", "PanelWeb", "PanelWebView", "SceneMain", "SweepLight", "TechRedDot", "CellMission", "PanelMission", "PanelMissionADReward", "HYAchievement", "HYActionQueue", "HYActiveSkill", "HYActiveSkillInfo", "HYBuild", "HYChannel", "HYCommon", "HYCondition", "HYContainer", "HYData", "HYDialogMgr", "HYDisease", "HYEffectMgr", "HYEndlessMaze", "HYEnemyAttack", "HYEvent", "HYFight", "HYFightBuff", "HYFreeTask", "HYGame", "HYGift", "HYGlobalBag", "HYHttpMgr", "HYInteraction", "HYItem", "HYItemUsageEffect", "HYKey", "HYLottery", "HYMail", "HYMapEvent", "HYMinigames", "HYMission", "HYNature", "HYNightRaid", "HYPlayer", "HYProfile", "HYRealTime", "HYResolution", "HYSignal", "HYSkillBuff", "HYStat", "HYTechnology", "HYTempData", "HYTheme", "HYTime", "HYUserCtrl", "HYUtils", "HYWarrior", "HYWordChecker", "HYWorld", "PanelNightRaidResult", "PanelNightRaidTips", "HunterRankItem", "PanelHunterRank", "PanelPVPRank", "PanelWantedRank", "WantedRankItem", "DungeonOfPetsMgr", "Pet", "PanelCatchPet", "Pets", "WidgetBarrier", "WidgetCatcher", "WidgetPetMaker", "PetMgr", "PanelCatchPetReady", "PanelCatchPetResult", "PanelPet", "PanelPetAtlasIntro", "PanelPetEquipMenu", "PanelPetExpSettlement", "PanelPetPresenter", "WidgetCellCage", "WidgetCellPet", "WidgetCellPetAtlas", "WidgetCellPetExp", "WidgetEquipmentOfPet", "WidgetListToAdded", "WidgetStatusPetCarried", "ExperienceCell", "PanelPlayerInfo", "StatisticCell", "ItemReviewAchieve", "ItemRoleExp", "PanelExpDetail", "PanelLastWords", "PanelReview", "PanelWeak", "ItemRoleSkin", "ModelSkill", "PanelActiveChgTips", "PanelChangeActiveSkill", "PanelCharacter", "WidgetCharacterAbilityTab", "WidgetCharacterAttrTab", "WidgetCharacterEquipTab", "WidgetCharacterTabs", "WidgetCharacters", "PanelAdvanceEffect", "PanelCharacterAdvance", "PanelCharacterMemory", "PanelCharacterStory", "PanelIntroduction", "PanelLearnSkill", "PanelLearnSkillAlert", "PanelPartnerJoinUs", "PanelPotionBuff", "PanelPropertyIntro", "PanelRole", "PanelRoleLvUp", "PanelRoleRevert", "PanelRoleSkin", "PanelSkillIntro", "PanelUseExpBook", "PanelWaterPlague", "RoleDataServer", "RoleDetailedInfo", "RoleFunctional", "RoleHelper", "RoleObjects", "RoleWDAttrTab", "RoleWDBaseInfo", "RoleWDCard", "RoleWDCharacterList", "RoleWDCoreInfo", "RoleWDDunegonState", "RoleWDEquipTab", "RoleWDLearnSkillTab", "RoleWDSkillTab", "RoleWeakTimer", "LogicGoldCoinMall", "PanelGoldCoinMall", "ItemGoods", "ItemLimitGift", "ItemLotteryIcon", "ItemLotteryItem", "ItemShopContent", "LotteryRedPointChecker", "ModelGoods", "ModelShop", "PaneLimitGift", "PaneLimitGiftTool", "PanelBuyConfirm", "PanelBuySuccess", "PanelFirstChargeResult", "PanelGetGoods", "PanelGoodsDetailed", "PanelGoodsDetailedDoubleExp", "PanelGoodsDetailedMonthCard", "PanelGoodsDetailedOriginal", "PanelGoodsDetailedOriginalOut", "PanelGoodsFirstCharge", "PanelGoodsList", "PanelLottery", "PanelLotteryLuckyPrize", "PanelLotteryLuckyRule", "PanelMainTipsGoods", "PanelMoneyTree", "PanelShop", "PanelShopBag", "PanellLotteryOne", "PanellLotteryPop", "PanellLotteryTen", "ShopEvent", "ShopPriceInit", "ShopRedPointChecker", "StrLink", "CtrlSign", "LocalSign", "PanelSignLoop", "CtrlSorftGuide", "SoftGuideMgr", "SorftGuide", "SorftGuideObj", "PanelFailed", "PanelStory", "PanelWaterfallStory", "StoryDetector", "StoryFunctional", "StoryGuideTips", "StoryMgr", "StoryProcess", "StoryServer", "StoryWDDialog", "StoryWDHeader", "StoryWDOptions", "OrdinaryRedDot", "SysRedDotTips", "panelStorm", "AutoScrollActive", "ButtonCustom", "ButtonGroup", "Follow", "LocaleLabel", "LocaleSprite", "MultiScroll", "MultiScrollIdx", "TransSprite", "TypewriterEffect", "WidgetBatchItem", "WidgetBatchMgr", "WidgetPageViewIndicator", "WidgetRichEventEmiter", "WidgetScroll", "WidgetTreasure", "PanelWizard", "AStar", "ModelFog", "PanelFog", "PanelLeaveForDest", "PanelWorld", "PanelWorldForNight", "SceneWorld", "WalkStageFight", "SceneWreck", "DYADMgr", "DYAnalyze", "DYAudio", "DYChannel", "DYConst", "DYCrypto", "DYData", "DYEval", "DYExtends", "DYGame", "DYHtmlTextParser", "DYHttpMgr", "DYIAPMgr", "DYLoader", "DYLoginMgr", "DYNotify", "DYProfile", "DYRealTime", "DYResolution", "DYShader", "DYShareMgr", "DYStat", "DYUIKiller", "DYUtils", "AddPerfab", "Game", "HandleScrolling", "IsShowHandbook", "LoadPerfab", "PanelChange", "PerformanceChecker", "PrefabItem" ]);
++}, {}, [ "cn", "AchieveTip", "CellAchieve", "PanelAchieve", "PanelAchieveADReward", "CPropSet", "CtrlActivites", "DefineActivities", "ItemTargetExchange", "ModelExchangeActivity", "PanelActivitesExchange", "ItemActivitesIcon", "ItemTargetAfterTime", "ItemTargetAnswer", "ItemTargetBase", "ItemTargetNormal", "ModelActivites", "PanelActivitesInShop", "PanelActivitesInShopResult", "PanelActivitesItemInfo", "PanelActivities", "PanelActivitiesAnswer", "PanelActivitiesNormal", "PanelAnswerSucc", "ItemTargetSevenDay", "ModelSevenDayActivite", "PanelActivitesSeven", "HYAlchemy", "HYAlchemyLab", "ItemNote", "ItemPotionCatalogue", "PanelAlchemy", "PanelAlchemyLV", "PanelCatalogue", "PanelIngredient", "PanelIngredientBatch", "PanelPotion", "PanelReappearRecipe", "PanelRecipe", "PanelSort", "PanelUsePotion", "WidgetAlchemyBag", "WidgetDecant", "WidgetIdentification", "WidgetIngredient", "WidgetMaterial", "WidgetMix", "WidgetNote", "WidgetPotion", "WidgetProcess", "WidgetSelect", "WidgetSemis", "WidgetStartPage", "ItemAtlas", "ItemAtlasDevice", "PanelAtlas", "PanelAtlasItemTip", "PanelAtlasMonsterTip", "PanelAtlasStoryTip", "SceneAtlas", "PanelBoot", "PanelCG", "PanelGetPower", "PanelHotfix", "SceneBootFake", "Fish", "FishGame", "HuntingDefine", "ItemAnimal", "ItemHuntingBullet", "ModelHunting", "PanelHunting", "ItemChessNode", "ItemCoinNode", "ItemPieceNode", "LigatureCtrl", "MapCoinFlip", "ItemMineral", "ItemMiningBomb", "ModelMining", "PanelMining", "PanelMiningBoxAni", "WidgetCatchObj", "PanelBeastAttack", "PanelCoinFlip", "PanelConfirmExitCase", "PanelFindTheRule", "PanelFollowMe", "PanelHanoiTower", "PanelLigature", "PanelLookForItem", "PanelMakeTrap", "PanelOneTDraw", "PanelPairs", "PanelPuzzle", "PanelSokoban", "PanelThreeRing", "TestShader", "CampsiteADAwards", "Config", "ConfigRoleBust", "Const", "DY", "DialogBase", "DialogJump", "ItemMiniGameUI", "ItemSprite", "PanelADLottery", "PanelAlert", "PanelAutoPause", "PanelBigAlert", "PanelCostGold", "PanelDiscardItem", "PanelExchange", "PanelGoldCoinNotEnough", "PanelHelp", "PanelItemList", "PanelItemSource", "PanelItemTip", "PanelLinkageHyqs", "PanelObtainTips", "PanelPromptBoxWithCoin", "PanelRollingSubtitles", "PanelTipCenter", "PanelTipTop", "PanelTips", "PanelToast", "PanelUserAuth", "PanelWarning", "RealTimer", "TopNavigation", "WidgetAd", "WidgetAudioEffect", "WidgetAudioMusic", "WidgetBagItem", "WidgetContainer", "WidgetContainerBatch", "WidgetItem", "WidgetItemBatch", "WidgetItemPotion", "WidgetTabButton", "CtrlDevice", "PanelDeviceGet", "ItemMineDiary", "ItemSelectedDiary", "ModelDiary", "PanelDiary", "PanelDiaryDetailed", "SceneDiary", "CellCollectionRole", "CellConnecting", "CellDelegateCollect", "CellDungeonCard", "CellDungeonPot", "DungeonMapMgr", "DungeonTargetChecker", "ItemOneDungeon", "ItemOneRole", "ModelDungeon", "PanelDelegateCollect", "PanelDispatchRole", "PanelDungeon", "PanelDungeonBagInfo", "PanelDungeonDesc", "PanelDungeonRanking", "PanelDungeonRoleDetail", "PanelDungeonUnlockTip", "PanelItemLose", "PanelLastDungeonFailed", "PanelRankingHelp", "PanelRoleSelect", "PanelTeamEffectDesc", "SceneDungeon", "WidgetDungeonMap", "WidgetScrollCards", "NodeBlink", "NodeFlash", "NodeShake", "CtrlEndless", "CtrlEndlessRepu", "CtrlEndlessTask", "EndlessDefines", "ItemAward", "ItemDungeonRanking", "ItemEndlessEvent", "ItemEndlessEventSmall", "ItemEndlessTaskIcon", "ItemRanking", "ModelEndless", "ModelEndlessTask", "PanelEndless", "PanelEndlessAreaDesc", "PanelEndlessAward", "PanelEndlessCampInfo", "PanelEndlessExplain", "PanelEndlessMapEvent", "PanelEndlessMood", "PanelEndlessMoveArea", "PanelEndlessNature", "PanelEndlessRanking", "PanelEndlessRefresh", "PanelEndlessRefreshAD", "PanelEndlessReview", "PanelEndlessRoleSelect", "PanelEndlessSaveBackup", "PanelEndlessTask", "PanelEndlessTaskRefesh", "PanelEndlessWorld", "PanelEndlessWorldBG", "PanelEnemyAttackTips", "PanelRepuItemPurchase", "Reputation", "SceneEndless", "ItemEndlessMazeCheckPoint", "ItemGrid", "PanelEndlessMazeGridDetail", "PanelEndlessMazeIntensify", "PanelEndlessMazeMood", "PanelEndlessMazeSelect", "PanelEndlessMazeStorage", "PanelEndlessMazeTheme", "EndlessMazeEvent", "EndlessMazeEventMgr", "PanelRandomEvent", "SceneEndlessMaze", "WidgetEndlessMazeCheckPointMgr", "FightProgress", "ItemAlly", "ItemCollection", "ItemDiary", "ItemEnemy", "ItemFightGrid", "ItemFlash", "ItemPetMode", "ItemPetPos", "ItemRoleActiveSkill", "ItemRoleEquip", "ItemRoleMode", "ItemRolePos", "NpcStage", "PanelBattlePos", "PanelCollect", "PanelFight", "PanelFightGuide", "PanelFightLogV2", "PanelFightTrap", "PanelFish", "PanelFishSupport", "PanelLostWeapon", "PanelPotAni", "PanelPotDetail", "PanelPotRecycle", "PanelPotStorage", "PanelRelic", "PanelRelicResult", "PanelTrapItems", "FriendHelp", "ItemFriendHelp", "LocalFriendHelp", "PanelFriendHelp", "AniEvent", "AniObtainCurrency", "Butterfly", "ItemAniRabbit", "Lamplight", "NodeWaterCtrl", "PanelAniAutoClose", "PanelAniCloud", "PanelAniDungeon609", "PanelAniEagleFly", "PanelAniTimeFly", "PanelBuildAction", "PanelEndlessEnterAni", "PanelFirstInHome1", "PanelPageAni", "PanelPageVideo", "RandGameAniTime", "SmallBirdBehaviour", "WidgetTextFadeOneByOne", "CtrlGuide", "GuideFactory", "GuideLogic", "ModelGuide", "ModelMonolog", "PanelGuide", "PanelMonolog", "CtrlPageEvent", "DungeonConfigMgr", "DungeonMgr", "DungeonMusic", "HomeAniCtrl", "ItemBag", "ItemBuildDetail", "ItemBuildingWaterRole", "ItemDungeronMaterial", "ItemEquipMenu", "ItemEquipMenuChoice", "ItemEquipSubfield", "ItemEquipment", "ItemIcon", "ItemMaterial", "ItemNotEnoughMaterial", "ItemOnePetState", "ItemOneRoleState", "ItemProduct", "ItemRoleBuff", "ItemTalent", "ItemTalentList", "ItemWarehouse", "NodeVisibleByDialog", "PanelBagWarehouse", "PanelBuildBatchProduct", "PanelBuildRestoreDetail", "PanelBuildUpTip", "PanelBuildUpgradeDetail", "PanelBuilding", "PanelBuildingFence", "PanelBuildingPuppetFence", "PanelBuildingWater", "PanelDungeonTarget", "PanelGainTalent", "PanelGoOut", "PanelHome", "PanelHomeNight", "PanelHomeTool", "PanelItemExchange", "PanelItemFriend", "PanelItemFriendHistory", "PanelLucina", "PanelMedicalUnit", "PanelMigrate", "PanelNewDungeonTarget", "PanelPackBag", "PanelRoleBar", "PanelRoleDetail", "PanelRoleGive", "PanelRoleState", "PanelRoleStateDetail", "PanelStateDetail", "PanelTalent", "PanelToolBar", "PanelTopBar", "PanelTrackingTargets", "PanelWareHouse", "PanelWarehouseUpgrade", "PanelWeatherControl", "ProductItemJump", "SceneHome", "MobileNpcEntrance", "NPCHelper", "PanelBlagGive", "PanelFavor", "PanelSelectNum", "PanelTrade", "PanelTradeResult", "TradeHelper", "WidgetItemForTrasaction", "LabyStageBarrier", "LabyStageBase", "LabyStageCollect", "LabyStageCrossing", "LabyStageFight", "LabyStageMiniGame", "LabyStageMirrorFight", "LabyStageUploadMirror", "LabyWDAward", "LabyWDBaseInfo", "LabyWDCollecting", "LabyWDFightReady", "LabyWDMirrorIcon", "LabyWDOptions", "MazeDataHelper", "MazeMgr", "MazeObjects", "MirrorServer", "PanelLabyExit", "PanelLabyrinth", "PanelLoading", "SceneLoading", "CellMail", "PanelMail", "PanelMailDetail", "BogusParentNode", "ItemShowByCondition", "ItemTechnologyProduct", "LoadNotice", "NavToCode", "PanelFeedback", "PanelFloatDialog", "PanelMaintain", "PanelMoreInfo", "PanelName", "PanelNotice", "PanelSetting", "PanelSign", "PanelTechExchange", "PanelTechnology", "PanelUserProcotol", "PanelWeb", "PanelWebView", "SceneMain", "SweepLight", "TechRedDot", "CellMission", "PanelMission", "PanelMissionADReward", "HYAchievement", "HYActionQueue", "HYActiveSkill", "HYActiveSkillInfo", "HYBuild", "HYChannel", "HYCommon", "HYCondition", "HYContainer", "HYData", "HYDialogMgr", "HYDisease", "HYEffectMgr", "HYEndlessMaze", "HYEnemyAttack", "HYEvent", "HYFight", "HYFightBuff", "HYFreeTask", "HYGame", "HYGift", "HYGlobalBag", "HYHttpMgr", "HYInteraction", "HYItem", "HYItemUsageEffect", "HYKey", "HYLottery", "HYMail", "HYMapEvent", "HYMinigames", "HYMission", "HYNature", "HYNightRaid", "HYPlayer", "HYProfile", "HYRealTime", "HYResolution", "HYSignal", "HYSkillBuff", "HYStat", "HYTechnology", "HYTempData", "HYTheme", "HYTime", "HYUserCtrl", "HYUtils", "HYWarrior", "HYWordChecker", "HYWorld", "PanelNightRaidResult", "PanelNightRaidTips", "HunterRankItem", "PanelHunterRank", "PanelPVPRank", "PanelWantedRank", "WantedRankItem", "DungeonOfPetsMgr", "Pet", "PanelCatchPet", "Pets", "WidgetBarrier", "WidgetCatcher", "WidgetPetMaker", "PetMgr", "PanelCatchPetReady", "PanelCatchPetResult", "PanelPet", "PanelPetAtlasIntro", "PanelPetEquipMenu", "PanelPetExpSettlement", "PanelPetPresenter", "WidgetCellCage", "WidgetCellPet", "WidgetCellPetAtlas", "WidgetCellPetExp", "WidgetEquipmentOfPet", "WidgetListToAdded", "WidgetStatusPetCarried", "ExperienceCell", "PanelPlayerInfo", "StatisticCell", "ItemReviewAchieve", "ItemRoleExp", "PanelExpDetail", "PanelLastWords", "PanelReview", "PanelWeak", "ItemRoleSkin", "ModelSkill", "PanelActiveChgTips", "PanelChangeActiveSkill", "PanelCharacter", "WidgetCharacterAbilityTab", "WidgetCharacterAttrTab", "WidgetCharacterEquipTab", "WidgetCharacterTabs", "WidgetCharacters", "PanelAdvanceEffect", "PanelCharacterAdvance", "PanelCharacterMemory", "PanelCharacterStory", "PanelIntroduction", "PanelLearnSkill", "PanelLearnSkillAlert", "PanelPartnerJoinUs", "PanelPotionBuff", "PanelPropertyIntro", "PanelRole", "PanelRoleLvUp", "PanelRoleRevert", "PanelRoleSkin", "PanelSkillIntro", "PanelUseExpBook", "PanelWaterPlague", "RoleDataServer", "RoleDetailedInfo", "RoleFunctional", "RoleHelper", "RoleObjects", "RoleWDAttrTab", "RoleWDBaseInfo", "RoleWDCard", "RoleWDCharacterList", "RoleWDCoreInfo", "RoleWDDunegonState", "RoleWDEquipTab", "RoleWDLearnSkillTab", "RoleWDSkillTab", "RoleWeakTimer", "LogicGoldCoinMall", "PanelGoldCoinMall", "ItemGoods", "ItemLimitGift", "ItemLotteryIcon", "ItemLotteryItem", "ItemShopContent", "LotteryRedPointChecker", "ModelGoods", "ModelShop", "PaneLimitGift", "PaneLimitGiftTool", "PanelBuyConfirm", "PanelBuySuccess", "PanelFirstChargeResult", "PanelGetGoods", "PanelGoodsDetailed", "PanelGoodsDetailedDoubleExp", "PanelGoodsDetailedMonthCard", "PanelGoodsDetailedOriginal", "PanelGoodsDetailedOriginalOut", "PanelGoodsFirstCharge", "PanelGoodsList", "PanelLottery", "PanelLotteryLuckyPrize", "PanelLotteryLuckyRule", "PanelMainTipsGoods", "PanelMoneyTree", "PanelShop", "PanelShopBag", "PanellLotteryOne", "PanellLotteryPop", "PanellLotteryTen", "ShopEvent", "ShopPriceInit", "ShopRedPointChecker", "StrLink", "CtrlSign", "LocalSign", "PanelSignLoop", "CtrlSorftGuide", "SoftGuideMgr", "SorftGuide", "SorftGuideObj", "PanelFailed", "PanelStory", "PanelWaterfallStory", "StoryDetector", "StoryFunctional", "StoryGuideTips", "StoryMgr", "StoryProcess", "StoryServer", "StoryWDDialog", "StoryWDHeader", "StoryWDOptions", "OrdinaryRedDot", "SysRedDotTips", "panelStorm", "AutoScrollActive", "ButtonCustom", "ButtonGroup", "Follow", "LocaleLabel", "LocaleSprite", "MultiScroll", "MultiScrollIdx", "TransSprite", "TypewriterEffect", "WidgetBatchItem", "WidgetBatchMgr", "WidgetPageViewIndicator", "WidgetRichEventEmiter", "WidgetScroll", "WidgetTreasure", "PanelWizard", "AStar", "ModelFog", "PanelFog", "PanelLeaveForDest", "PanelWorld", "PanelWorldForNight", "SceneWorld", "WalkStageFight", "SceneWreck", "DYADMgr", "DYAnalyze", "DYAudio", "DYChannel", "DYConst", "DYCrypto", "DYData", "DYEval", "DYExtends", "DYGame", "DYHtmlTextParser", "DYHttpMgr", "DYIAPMgr", "DYLoader", "DYLoginMgr", "DYNotify", "DYProfile", "DYRealTime", "DYResolution", "DYShader", "DYShareMgr", "DYStat", "DYUIKiller", "DYUtils", "AddPerfab", "Game", "HandleScrolling", "IsShowHandbook", "LoadPerfab", "PanelChange", "PerformanceChecker", "PrefabItem" ]);

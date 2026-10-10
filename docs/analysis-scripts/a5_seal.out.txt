@@ -1,0 +1,101 @@
+############ 'sealTip' count= 2
+   44080| i(o);
+   44081| } else DDERROR("prefab is invalid");
+   44082| },
+>> 44083| sealTip: function(t) {
+   44084| var n = this, i = e("DY").i18n.t("S_3") + "4015-" + t, o = e("DY").i18n.t("E_14") + "\n" + e("DY").i18n.t("S_790") + e("DY").cache.uid;
+   44085| n.alert(i, o, null, function() {
+   44086| n.sealTip(t);
+   44087| });
+   44088| },
+   44089| logEventForPartner: function(t, n, i) {
+   44090| "facebook" == t && e("DY").utils.getParamExt("K_LOG_EVENT", JSON.stringify({
+   44091| partner: t,
+   44092| label: n,
+------------------------------------------------------------
+   44083| sealTip: function(t) {
+   44084| var n = this, i = e("DY").i18n.t("S_3") + "4015-" + t, o = e("DY").i18n.t("E_14") + "\n" + e("DY").i18n.t("S_790") + e("DY").cache.uid;
+   44085| n.alert(i, o, null, function() {
+>> 44086| n.sealTip(t);
+   44087| });
+   44088| },
+   44089| logEventForPartner: function(t, n, i) {
+   44090| "facebook" == t && e("DY").utils.getParamExt("K_LOG_EVENT", JSON.stringify({
+   44091| partner: t,
+   44092| label: n,
+   44093| param: i
+   44094| }));
+   44095| },
+------------------------------------------------------------
+############ 'setCheat' count= 2
+   44099| isHideAni: function() {
+   44100| return !0;
+   44101| },
+>> 44102| setCheat: function(t) {
+   44103| var n = {
+   44104| account_cheat: 1,
+   44105| modify_achieve: 2,
+   44106| modify_mission: 4,
+   44107| modify_activites: 5,
+   44108| cheat_tick: 8,
+   44109| cheat_enprice: 16,
+   44110| cheat_deprice: 32
+   44111| }[t];
+------------------------------------------------------------
+   51120| },
+   51121| clientlog: function(t, n, i, a, r, s) {
+   51122| if (o) {
+>> 51123| e("HYCommon").setCheat(t);
+   51124| var c = o + "/user/clientlog", l = {
+   51125| type: t,
+   51126| content: n,
+   51127| aliveTime: e("HYTime").day(),
+   51128| param1: a || "",
+   51129| param2: r || "",
+   51130| param3: s || ""
+   51131| };
+   51132| this._requestCommon(function(e, t) {
+------------------------------------------------------------
+############ 'base.cheat' count= 4
+   44110| cheat_deprice: 32
+   44111| }[t];
+   44112| if (n) {
+>> 44113| var i = e("HYData").get("base.cheat") | n;
+   44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+   44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+   44120| var t = e("DY").theRoot.node;
+   44121| return t.height / t.width < 2;
+   44122| }
+------------------------------------------------------------
+   44111| }[t];
+   44112| if (n) {
+   44113| var i = e("HYData").get("base.cheat") | n;
+>> 44114| e("HYData").set("base.cheat", i);
+   44115| e("HYData").trySave();
+   44116| }
+   44117| },
+   44118| isMiniGame: function() {
+   44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+   44120| var t = e("DY").theRoot.node;
+   44121| return t.height / t.width < 2;
+   44122| }
+   44123| return !1;
+------------------------------------------------------------
+   46694| buyNum: 0
+   46695| }
+   46696| });
+>> 46697| !n.mData.base.cheat && n.set("base.cheat", 0);
+   46698| (!n.mData.base.lottery || !n.mData.base.lottery.lock) && n.set("base.lottery", {
+   46699| freeTime: 0,
+   46700| freeTimeSign: 0,
+   46701| isShowAni: 1,
+   46702| lock: {},
+   46703| lucky: 0
+   46704| });
+   46705| !n.mData.base.limitGift && n.set("base.limitGift", {
+   46706| dungeonStory: {},
+------------------------------------------------------------

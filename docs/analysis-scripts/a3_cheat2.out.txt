@@ -1,0 +1,148 @@
+==================== cheat region
+ 44070| },
+ 44071| loadTopNavigation: function(e, t, n) {
+ 44072| var i = function(n) {
+ 44073| n.parent = e;
+ 44074| n.position = cc.v2(0, 0);
+ 44075| var i = n.getComponent(n.name);
+ 44076| t && t(i, n);
+ 44077| };
+ 44078| if (n) {
+ 44079| var o = cc.instantiate(n);
+ 44080| i(o);
+ 44081| } else DDERROR("prefab is invalid");
+ 44082| },
+ 44083| sealTip: function(t) {
+ 44084| var n = this, i = e("DY").i18n.t("S_3") + "4015-" + t, o = e("DY").i18n.t("E_14") + "\n" + e("DY").i18n.t("S_790") + e("DY").cache.uid;
+ 44085| n.alert(i, o, null, function() {
+ 44086| n.sealTip(t);
+ 44087| });
+ 44088| },
+ 44089| logEventForPartner: function(t, n, i) {
+ 44090| "facebook" == t && e("DY").utils.getParamExt("K_LOG_EVENT", JSON.stringify({
+ 44091| partner: t,
+ 44092| label: n,
+ 44093| param: i
+ 44094| }));
+ 44095| },
+ 44096| isShowAni: function() {
+ 44097| return !window.DYH5 || !window.DYH5.isHideAni;
+ 44098| },
+ 44099| isHideAni: function() {
+ 44100| return !0;
+ 44101| },
+ 44102| setCheat: function(t) {
+ 44103| var n = {
+ 44104| account_cheat: 1,
+ 44105| modify_achieve: 2,
+ 44106| modify_mission: 4,
+ 44107| modify_activites: 5,
+ 44108| cheat_tick: 8,
+ 44109| cheat_enprice: 16,
+ 44110| cheat_deprice: 32
+ 44111| }[t];
+ 44112| if (n) {
+ 44113| var i = e("HYData").get("base.cheat") | n;
+ 44114| e("HYData").set("base.cheat", i);
+ 44115| e("HYData").trySave();
+ 44116| }
+ 44117| },
+ 44118| isMiniGame: function() {
+ 44119| if (window.DYH5 && window.DYH5.isMiniGame) {
+ 44120| var t = e("DY").theRoot.node;
+ 44121| return t.height / t.width < 2;
+ 44122| }
+ 44123| return !1;
+ 44124| },
+ 44125| currencyShort: function(e) {
+ 44126| var t = 0, n = "";
+ 44127| if ((e = ~~e) > 999) {
+ 44128| t = (e / 1e3).toFixed(3);
+ 44129| n = "K";
+ 44130| } else if (e > 999999) {
+ 44131| t = (e / 1e6).toFixed(3);
+ 44132| n = "M";
+ 44133| } else if (e > 999999999) {
+ 44134| t = (e / 1e9).toFixed(3);
+ 44135| n = "B";
+ 44136| } else t = e + "";
+ 44137| return t.substr(0, 4) + n;
+ 44138| },
+ 44139| fight: function(t, n, i, o, a, r) {
+ 44140| var s, c, l = function() {
+ 44141| if (s && c) {
+ 44142| r && r(s, c);
+ 44143| var t = e("HYFight").fight(s, c, o);
+ 44144| a && a(t);
+ 44145| }
+ 44146| };
+ 44147| e("HYPlayer").getFightParams(t, function(e) {
+ 44148| for (var t in e) e[t].fightMode = 0;
+ 44149| s = e;
+ 44150| l();
+ 44151| });
+ 44152| if (o != e("Const").EnumFightType.FT_PVP) e("HYProfile").getAll("skillbuff", function(t) {
+ 44153| var o = [ "3", "4", "5", "7", "8" ], a = e("HYTheme").getThemeAll();
+ 44154| e("HYProfile").getByIds("monster", n, function(r) {
+ 44155| var s = [], d = n.length, u = n.length;
+ 44156| if (a[2]) {
+ 44157| var m = parseInt(a[2]);
+ 44158| e("HYCommon").random(99) < m && (d *= 2);
+ 44159| }
+ 44160| for (var h = 0; h < d; h++) {
+ 44161| var f = n[h % u], _ = e("DY").utils.clone(r[f]);
+ 44162| for (var g in i) _[g] && (_[g] = Math.ceil(_[g] * (i[g] || 1)));
+ 44163| var p = {};
+ 44164| for (var v in a) if (o.indexOf(v) >= 0) {
+ 44165| var y = a[v];
+ 44166| p[y] = t[y];
+ 44167| }
+ 44168| if (_.skill && _.skill.length > 0) for (var D = 0; D < _.skill.length; D++) {
+ 44169| var C = _.skill[D];
+ 44170| p[C] = t[C];
+ 44171| }
+ 44172| _.buff = p;
+ 44173| s.push(_);
+ 44174| }
+ 44175| c = s;
+ 44176| l();
+ 44177| });
+ 44178| }); else {
+ 44179| c = n;
+ 44180| l();
+ 44181| }
+ 44182| },
+ 44183| getWorldPosition2: function(e) {
+ 44184| var t = e;
+ 44185| if (~~cc.ENGINE_VERSION.match(/[0-9]\./)[0] >= 2) {
+ 44186| var n = cc.view.getVisibleSize(), i = cc.find("Canvas");
+ 44187| n.width > i.width && (t.x -= (n.width - i.width) / 2);
+ 44188| n.height > i.height && (t.y -= (n.height - i.height) / 2);
+ 44189| return t;
+ 44190| }
+ 44191| return t;
+ 44192| },
+ 44193| getIconInfo: function(t) {
+ 44194| e("DYRealTime").curServerTick(function(n) {
+ 44195| var i = e("HYData").get("base.player.headPortrait.curUse") || 0;
+ 44196| if (!i) {
+ 44197| var o = e("HYData").get("base.player.headPortrait.list");
+ 44198| if (o) for (var a in o) {
+ 44199| var r = o[a].endTime;
+ 44200| if (-1 == r || r > n) {
+
+### 4015 occurrences:
+ 42879| CODE: "4015",
+ 42884| CODE: "4015_1",
+ 44084| var n = this, i = e("DY").i18n.t("S_3") + "4015-" + t, o = e("DY").i18n.t("E_14") + "\n" + e("DY").i18n.t("S_790") + e("DY").cache.uid;
+ 45570| _check4015: function(e, t, n) {
+134270| item_name_4015: "钉子",
+134633| item_desc_4015: "用金属打磨而成的钉子，是建造建筑的重要材料。",
+134991| item_source_4015: "工具台或交易",
+135366| item_extext_4015: "少了一枚铁钉，掉了一只马掌。掉了一只马掌，失去一匹战马。失去一匹战马，失去一位国王。失去一位国王，败了一场战役。败了一场战役，毁了一个王朝。",
+135896| role_name_4015: "星图",
+135958| role_desc_4015: "地下基地顶部的星空图案，里面似乎隐藏着深不可测的秘密。",
+136899| buff_show_4015: "外伤感染",
+138276| story_text_104015: "你们要的东西已经不在我手里了。",
+138394| story_text_204015: "没谁提到灰白狂欢会开心。",
+139817| story_text_114015: "好了好了，不要再看了，俗话说得好，生死有命富贵在——啊！！别挤我的伤口！",

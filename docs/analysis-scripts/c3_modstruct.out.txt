@@ -1,0 +1,609 @@
+    1| /* =========================================================================
+    9| var M = window.HYMOD = { ver: "3.2.0", ready: false };
+   11| /* ---------------- 基础工具 ---------------- */
+   12| function log(s) {
+   15| function T(msg) { try { HYCommon.toast(String(msg), 2); } catch (e) { log("toast fail " + e); } try { bridge("setStatus", "(Ljava/lang/String;)V", Str
+   16| function ok(fn, tag) { try { return fn(); } catch (e) { log((tag || "err") + ": " + e); return null; } }
+   17| M.log = log; M.T = T; M.ok = ok;
+   19| function bridge(method, sig, arg) {
+   21| var r;
+   27| M.bridge = bridge;
+   28| function jstr(o) { try { return JSON.stringify(o); } catch (e) { return null; } }
+   30| /* ---------------- 配置 ---------------- */
+   31| var cfg = {
+   39| var s = persistOn() ? cc.sys.localStorage.getItem("hymod_cfg2") : null;
+   42| M.cfg = cfg;
+   43| /* ---------------- 首选项持久化开关 (需求12) ---------------- */
+   44| function persistOn() { try { return cc.sys.localStorage.getItem("hymod_persist") === "1"; } catch (e) { return false; } }
+   45| M.persist = persistOn();
+   46| function setPersist(on) {
+   47| M.persist = !!on;
+   58| M.persistOn = persistOn; M.setPersist = setPersist;
+   59| function saveCfg() { if (!M.persist) return; ok(function () { cc.sys.localStorage.setItem("hymod_cfg2", JSON.stringify(cfg)); }); }
+   61| /* ---------------- 本地增益(不上传) ---------------- */
+   62| var buff = {
+   71| M.buff = buff;
+   72| M.locked = {};           // 需求2: 锁定的角色状态 {7004:值,...}
+   73| M.eagle = { bloodMax: 0, friendMax: 0 };   // 需求9: 金雕活力/羁绊上限
+   75| /* ---------------- 安全层 ---------------- */
+   76| var hooksInstalled = false;
+   77| function installSafeHooks() {
+   82| var rawLog = dy.http.clientlog;
+   90| var rawCheck = HYCommon.checkItem;
+   98| var rawUp = dy.http.updateData;
+  100| var d = data;
+  103| var o = JSON.parse(data || "{}"), bad = /cheat|illegal/i, out = {}, n = 0;
+  111| M.lastUpd = { code: res && res.errorCode, msg: res && res.errorMsg, time: Date.now() };
+  120| var rawChk = dy.http.checkUpdateInfo;
+  130| M.installSafeHooks = installSafeHooks;
+  132| /* ---------------- 需求7: 去除所有本地封号校验(4015 系列) ---------------- */
+  133| var noBan = {};
+  134| function noBanAllDone() {
+  137| function installNoBanHooks() {
+  140| /* 1) dy.cache.invalid 拦截(登录响应里的封号标记) */
+  152| /* 2) HYCommon.sealTip 置空(封号标记+清号) */
+  158| /* 3) HYCommon.alert 过滤 4015 系列弹窗 */
+  160| var rawAlert = HYCommon.alert, t15 = "";
+  164| var s = String(title || "");
+  172| /* 4) dy.http.logError 不上报 4015 系列 */
+  174| var rawLogErr = dy.http.logError;
+  181| /* 5) SceneMain 本地校验方法覆写(_checkMainJs / _checkIsCheated) */
+  183| var cls = null;
+  194| M.installNoBanHooks = installNoBanHooks;
+  195| /* ---------------- 物品 ---------------- */
+  196| var SPECIAL = {
+  200| var TYPE_CN = { tool: "工具", food: "食物", prop: "材料", drug: "药品", spe: "特殊", inv: "杂物" };
+  202| function itemIds() {
+  203| var p = ok(function () { return dy.profile.getAll("Profiles/item_profile"); }) || {};
+  204| var out = [];
+  208| function lang() { return (dy.cache && dy.cache.language) || "cn"; }
+  209| function itemName(id) {
+  210| var p = ok(function () { return dy.profile.getById("Profiles/item_profile", id); });
+  214| M.itemName = itemName;
+  216| function pickerItems() {
+  217| var arr = [], ids = itemIds();
+  219| var id = ids[i], p = dy.profile.getById("Profiles/item_profile", id);
+  226| /** 发放物品: target = bag | warehouse */
+  227| function giveItems(ids, count, target) {
+  228| var map = {}, n = 0;
+  230| var id = String(ids[i]);
+  243| M.giveItems = giveItems;
+  245| function refreshBag() {
+  251| M.refreshBag = refreshBag;
+  253| function giveSpecial(id, num) {
+  266| /** 一键全物品 -> 仓库 / 背包 */
+  267| function allItems(count, target, safe) {
+  268| var ids = itemIds(), map = {}, n = 0;
+  270| var id = ids[i], v = +count;
+  282| M.allItems = allItems;
+  284| /** 清空背包(不含仓库) */
+  285| function clearBag() {
+  286| var b = ok(function () { return HYData.get("core.bag"); }) || {}, n = 0;
+  292| M.clearBag = clearBag;
+  294| /** 邮件式发奖: goods = "id:num;id:num" */
+  295| function mailGrant(goods, coin) {
+  296| var r = String(goods || "").split(";"), c = {}, n = 0, miss = [];
+  299| var l = r[s].split(":"), id = String(l[0]).trim(), num = +l[1] || 0;
+  312| var back = [];
+  321| M.mailGrant = mailGrant;
+  323| /** 贝壳 */
+  324| function coinGrant(num) {
+  330| M.coinGrant = coinGrant;
+  331| /* ---------------- 战斗/属性 hook (纯本地, 不上传) ---------------- */
+  332| var H = {};
+  333| function installGameHooks() {
+  336| var rawBF = HYPlayer.getBaseFight;
+  338| var o = rawBF.apply(this, arguments);
+  341| var mul = buff.godMode ? 100 : buff.lifeMul;
+  353| var rawFB = HYPlayer.getFightBuff;
+  355| var o = rawFB.apply(this, arguments);
+  367| var rawSpeed = HYPlayer.getMoveSpeed;
+  369| var v = rawSpeed.apply(this, arguments);
+  371| var mul = buff.teleport ? 300 : buff.moveMul;
+  377| var rawDef = HYPlayer.getDef;
+  379| var v = rawDef.apply(this, arguments);
+  382| var rawMiss = HYPlayer.getMiss;
+  384| var v = rawMiss.apply(this, arguments);
+  387| var rawLoad = HYPlayer.getMaxLoad;
+  389| var v = rawLoad.apply(this, arguments);
+  393| var rawScore = HYCommon.calScore;
+  395| var v = rawScore.apply(this, arguments);
+  400| /* 无限耐久: 拦截装备耐久消耗(负值直接吞掉) */
+  402| var rawUD = HYEquip.updateDuration;
+  407| var keep = {}, cut = 0;
+  426| M.installGameHooks = installGameHooks;
+  428| /* ---------------- 需求1: 内购直接成功 ---------------- */
+  429| function installPayHooks() {
+  432| var rawTryPay = dy.http.tryPay;
+  444| var rawAD = HYCommon.tryCostADCoin;
+  456| /* ---------------- 需求11: 建筑耐久锁定 ---------------- */
+  457| function installBuildDurHook() {
+  460| var rawBUD = HYBuild.updateDuration;
+  465| var keep = {}, cut = 0;
+  480| /* ---------------- 需求2: 角色状态锁定 ---------------- */
+  481| var ATTR_MAXKEY = { "7004": "7046", "7005": "7047", "7006": "7048", "7000": "7044", "7001": "7045" };
+  482| var ATTR_NAMES = { "7004": "外伤", "7005": "内伤", "7006": "饥饿", "7000": "精神", "7001": "失眠" };
+  483| function lockAttrCurrent(id) {
+  484| var v = ~~ok(function () { return HYData.get("core.role." + id); });
+  485| M.locked[id] = v;
+  490| function restoreLockedAttrs() {
+  492| var lv = M.locked[id];
+  500| function installAttrLockHook() {
+  503| var rawCRS = HYPlayer._correctRoleState;
+  505| var r = rawCRS.apply(this, arguments);
+  512| function setRoleAttr(id, v) {
+  520| function setRoleAttrMax(id, v) {
+  521| var mk = ATTR_MAXKEY[id];
+  531| /* ---------------- 需求5: 限时副本 ---------------- */
+  532| var LIMITED_POTS = { "4003": 1, "4004": 1, "4005": 1, "4006": 1 };
+  533| var LIMITED_ITEMS = ["4423", "4444", "4449", "4450"];
+  534| var POT_SPREAD = {
+  540| function hookPotPanelClass() {
+  542| var cls = null;
+  545| var rawInit = cls.prototype.init;
+  550| var p = POT_SPREAD[String(potId)];
+  559| function installLimitedHooks() {
+  562| var rawShow = HYWorld.isPotShow;
+  566| var prof = this.fetchPotProfile(id);
+  568| var code = prof.MAP_CODE || 0;
+  578| var rawUnlock = HYWorld._checkUnlock;
+  586| function spreadLimitedPots() {
+  587| var scene = ok(function () { return cc.director.getScene(); });
+  589| var n = 0, stack = [scene];
+  591| var nd = stack.pop();
+  593| var ch = nd._children;
+  595| var comps = nd._components;
+  597| var c = comps[j];
+  599| var p = POT_SPREAD[String(c.mAreaPot)];
+  608| function setLimitedDungeons(on, silent) {
+  610| var ids = ["4003", "4004", "4005", "4006"];
+  614| var d = HYWorld.fetchPotData(id);
+  622| var need = 0;
+  624| var give = {};
+  626| var liid = LIMITED_ITEMS[k];
+  627| var lcur = ~~HYData.get("core.bag." + liid) + ~~HYData.get("core.warehouse." + liid);
+  648| /* ---------------- 装备强化 ---------------- */
+  649| var equip = { on: false, atkMul: 3, defMul: 3, disMul: 2, critAdd: 30 };
+  650| M.equip = equip;
+  651| function applyEquip(on, silent) {
+  652| var prof = ok(function () { return dy.profile.mProfiles["Profiles/item_profile"]; });
+  655| M._eqBk = {};
+  657| var p = prof[k]; if (!p) continue;
+  659| var a = p[key]; if (!a || a.ATK === undefined) return;
+  660| M._eqBk[k + (idx ? "_" + idx : "")] = { ATK: a.ATK, DEF: a.DEF, DIS: a.DIS, CRIT: a.CRIT, HIT: a.HIT };
+  665| var n = 0;
+  667| var pp = prof[id]; if (!pp) continue;
+  669| var a = pp[key]; if (!a || a.ATK === undefined) return;
+  670| var bk = M._eqBk[id + (idx ? "_" + idx : "")]; if (!bk) return;
+  685| M.applyEquip = applyEquip;
+  687| /* ---------------- 皮肤 / 角色 ---------------- */
+  688| var SKIN_NAMES = {
+  695| var SKIN_IDS = [];
+  696| function loadSkinList() {
+  698| var p = ok(function () { return dy.profile.getAll("Profiles/role_skin"); });
+  700| var out = [];
+  704| function unlockSkin(sid) {
+  705| var role = String(Math.floor(parseInt(sid, 10) / 100));
+  710| function unlockAllSkins() {
+  717| M.unlockAllSkins = unlockAllSkins;
+  718| function useSkin(sid) {
+  719| var role = String(Math.floor(parseInt(sid, 10) / 100));
+  726| M.useSkin = useSkin;
+  728| /* 角色解锁 (原人民币购买) */
+  729| var ROLE_SHOP = { "1001": 2, "1002": 1, "1003": 3, "1004": 4 };   // roleId -> shopId
+  730| var ROLE_NAMES = { "1000": "罗兰", "1001": "朱莉", "1002": "老贝", "1003": "小哥", "1004": "基德" };
+  731| function unlockRole(roleId, byShop) {
+  732| var shopId = ROLE_SHOP[roleId];
+  739| function unlockAllRoles() {
+  740| var n = 0;
+  744| M.unlockAllRoles = unlockAllRoles;
+  745| function buyRoleWithCoin(roleId, price) {
+  747| var cur = ok(function () { return HYCoin.current(); }) || 0;
+  753| M.buyRoleWithCoin = buyRoleWithCoin;
+  755| /* ==================== 背包->仓库 / 全提升 / 战斗倍速 ==================== */
+  757| /** 把背包里所有物品移动到仓库(真正的搬运) */
+  758| function bagToWarehouse() {
+  759| var b = ok(function () { return HYData.get("core.bag"); }) || {};
+  760| var map = {}, n = 0, total = 0;
+  764| var neg = {};
+  772| M.bagToWarehouse = bagToWarehouse;
+  774| /* ---------------- 科技 / 皮肤强化 / 天赋 全满 (真实写入最高等级) ---------------- */
+  776| /** 建筑/产品科技拉满: 每个 (productId, base) 组写入 "节点数" 级 = 游戏内最高级
+  778| function techProductMax(silent) {
+  779| var t = ok(function () { return dy.profile.getAll("Profiles/technology"); });
+  781| var skinPids = {};
+  782| var tr0 = ok(function () { return dy.profile.getAll("Profiles/tech_role"); }) || {};
+  784| var cnt = {};
+  786| var v = t[k];
+  789| var key = v.productId + "." + (10 * Math.floor(v.id / 10));
+  792| var n = 0;
+  801| /** 皮肤角色科技树强化全满 (tech_role.json 里所有 techList) */
+  802| function skinTechMax(silent) {
+  803| var tr = ok(function () { return dy.profile.getAll("Profiles/tech_role"); });
+  805| var pids = {};
+  807| var tl = (tr[role] && tr[role].techList) || [];
+  810| var n = 0;
+  812| var mx = ~~ok(function () { return HYTechnology.getSkinMaxLevel(pid); });
+  820| /** 天赋强化全满 (每个天赋 3 级, 游戏源码上限) */
+  821| function talentMax(silent) {
+  822| var tal = ok(function () { return dy.profile.getAll("Profiles/talent_profile"); });
+  824| var n = 0;
+  832| M.techProductMax = techProductMax; M.skinTechMax = skinTechMax; M.talentMax = talentMax;
+  834| /** 一键解锁全提升: 科技 + 皮肤强化 + 天赋 + 全皮肤 + 全角色 */
+  835| function allUpgrade() {
+  836| var nT = techProductMax(true), nS = skinTechMax(true), nL = talentMax(true);
+  837| var nSkin = 0, rs = ok(function () { return dy.profile.getAll("Profiles/role_skin"); }) || {};
+  841| var nRole = 0;
+  848| M.allUpgrade = allUpgrade;
+  850| /* ---------------- 战斗倍速 (游戏自带 base.fightSpeed, 战斗文字间隔 = 0.8/speed) ---------------- */
+  851| function setFightSpeed(v) {
+  855| M.fightSpeed = v;
+  859| M.setFightSpeed = setFightSpeed;
+  861| /* ---------------- 启动时恢复滑块/开关状态 ---------------- */
+  862| function applyState() {
+  886| var fs2 = Math.max(1, Math.min(3, nv("fightSpeed", 1)));
+  887| M.fightSpeed = fs2;
+  890| var tries = 0;
+  891| var tryEq = function () {
+  900| M.applyState = applyState;
+  902| /* ---------------- 其它 ---------------- */
+  903| function clearCooldowns() {
+  904| var n = 0;
+  905| var scan = function (obj, prefix) {
+  907| var v = obj[k];
+  917| M.clearCooldowns = clearCooldowns;
+  919| function clearCheatFlags(silent) {
+  920| var keys = ["base.cheatAchievement", "base.achieve_fake_profile", "base.cheatBuildProducts",
+  925| var n = 0;
+  930| M.clearCheatFlags = clearCheatFlags;
+  931| /* ---------------- 菜单结构 ---------------- */
+  933| /* ================================================================
+  950| /* ---- 需求7 补充: 场景主类校验方法覆写(实例定位 -> 原型级覆写) ---- */
+  951| function hookSceneMainNow() {
+  953| var scene = ok(function () { return cc.director.getScene(); });
+  955| var stack = [scene], found = null;
+  957| var nd = stack.pop();
+  959| var comps = nd._components;
+  961| var c = comps[i];
+  964| var ch = nd._children;
+  970| var proto = Object.getPrototypeOf(found) || found;
+  980| /* ---- 需求3: 选择游戏天数 ---- */
+  981| function setGameDay(target) {
+  985| var old = ok(function () { return HYTime.day(); }) || 1;
+  987| var delta = target - old;
+  988| var tl = (ok(function () { return HYTime.timeline(); }) || 0) + delta * 86400;
+  992| /* 先把累计器 core.achieve.* 同步到当前计数, 保证补发天数一定计入(ONCE 成就按累计器取 max) */
+  993| var ap = achieveProfileMap();
+  995| var pa = ap[aid];
+  997| var bc = HYData.get("base.achieve." + aid);
+  998| var ac = HYData.get("core.achieve." + aid) || 0;
+  999| var want = Math.max((bc && bc.count) || 0, ac);
+ 1014| M.dayInfo = { day: target, old: old, time: Date.now() };
+ 1020| /* ---- 需求4: 当前副本进度 ---- */
+ 1021| function currentPotId() {
+ 1022| var id = ok(function () { return HYData.cache && HYData.cache.currentPot; });
+ 1026| function potName(id) {
+ 1027| var s = "";
+ 1029| var pf = dy.profile.getById("Profiles/pot_profile", id);
+ 1034| function detectPot(silent) {
+ 1035| var id = currentPotId();
+ 1037| var prof = ok(function () { return HYWorld.fetchPotProfile(id); });
+ 1039| var type = String(prof.TYPE), info = { id: id, name: potName(id), type: type, kind: "", cur: 0, total: 0 };
+ 1040| var d = ok(function () { return HYWorld.fetchPotData(id); });
+ 1050| M.potInfo = info;
+ 1058| function setPotProgress(v) {
+ 1059| var info = M.potInfo || detectPot(true);
+ 1065| var d = ok(function () { return HYWorld.fetchPotData(info.id); });
+ 1078| function openPotPicker() {
+ 1079| var info = detectPot(true);
+ 1082| var items = [];
+ 1090| /* ---- 需求6: 成就 ---- */
+ 1091| function achieveProfileMap() {
+ 1094| function achieveName(a, id) {
+ 1097| function achieveMaxCount(a) {
+ 1098| var v = a && a.DEMAND && a.DEMAND.value;
+ 1102| function completeAchieve(id, count) {
+ 1103| var p = achieveProfileMap()[id];
+ 1105| var mx = achieveMaxCount(p);
+ 1106| var c = (count === undefined || count === null || isNaN(parseInt(count, 10))) ? mx : Math.max(0, parseInt(count, 10));
+ 1110| function completeAllAchieves() {
+ 1111| var p = achieveProfileMap(), n = 0;
+ 1113| var a = p[id];
+ 1122| function openAchievePicker() {
+ 1123| var p = achieveProfileMap(), items = [];
+ 1125| var a = p[id];
+ 1127| var cat = a.TYPE == 1 ? "战斗" : a.TYPE == 2 ? "生存" : "探索";
+ 1136| /* ---- 需求8: 图鉴 ---- */
+ 1137| function atlasInfo() {
+ 1138| var s = "";
+ 1140| var A = HYData.get("base.atlas") || {};
+ 1141| var f = function (x) { var n = 0; for (var k in (x || {})) n++; return n; };
+ 1146| function unlockAtlas(kind) {
+ 1147| var src = ok(function () {
+ 1150| var items = ok(function () { return dy.profile.getAll("Profiles/item_profile"); }) || {};
+ 1151| var n = 0;
+ 1164| M.atlasText = atlasInfo();
+ 1168| function unlockAllAtlas() {
+ 1169| var a = unlockAtlas("FOR_S"), b = unlockAtlas("FOR_B"), c = unlockAtlas("FOR_I");
+ 1174| /* ---- 需求9: 金雕 ---- */
+ 1175| function installEagleHooks() {
+ 1178| var rawBlood = HYEagle.updateBlood;
+ 1181| /* 自定义上限生效时完全接管加减与钳制(游戏原函数按羁绊等级封顶, 会无视自定义上限) */
+ 1182| var ed = parseInt(e, 10); if (isNaN(ed)) ed = 0;
+ 1183| var et = (+HYData.get("base.eagle.blood") || 0) + ed;
+ 1185| var elo = Math.min(10, M.eagle.bloodMax);
+ 1190| var r = rawBlood.apply(this, arguments);
+ 1192| var b = +HYData.get("base.eagle.blood");
+ 1200| var rawFri = HYEagle.updateFriendship;
+ 1202| var r = rawFri.apply(this, arguments);
+ 1205| var f = +HYData.get("base.eagle.friendship");
+ 1214| function setEagle(vals) {
+ 1215| var e = M.eagle;
+ 1219| var f = Math.max(0, parseInt(vals.friendship, 10) || 0);
+ 1224| var b = Math.max(0, parseInt(vals.blood, 10) || 0);
+ 1225| var mx = e.bloodMax > 0 ? e.bloodMax : (100 + 15 * (ok(function () { return HYEagle.getFriendshipLevel(); }) || 1));
+ 1234| /* ---- 需求10: 狼 ---- */
+ 1235| function wolfHas() { return !!ok(function () { return HYPet.hasPet(HYPet.PT_WOLF); }); }
+ 1236| function setWolf(vals) {
+ 1238| var p = ok(function () { return HYData.get("core.pets.1"); });
+ 1252| /* ---- 需求11: 建筑耐久 ---- */
+ 1253| function installBuildDurSetHook() {
+ 1256| var rawSetB = HYData.set;
+ 1260| var old = HYData.get(k);
+ 1272| function fixAllBuilds() {
+ 1273| var n = 0;
+ 1275| var b = HYData.get("core.builds") || {};
+ 1277| var mx = HYData.get("core.builds." + id + ".DURATION_MAX");
+ 1279| var cur = HYData.get("core.builds." + id + ".DURATION");
+ 1288| /* ---- 需求12: 首选项持久化 ---- */
+ 1289| function applyPersist(val) {
+ 1290| var on = (val === "1" || val === true);
+ 1293| M.vals = {}; M.saveVals();
+ 1296| M.vals["persist"] = "1";
+ 1297| M.saveVals(); saveCfg();
+ 1303| /* ---- 需求1: 一键发放全部商店礼包 ---- */
+ 1304| function payAllWares() {
+ 1305| var n = 0;
+ 1308| var lists = [HYCommon.mShopProfileForAccount, HYCommon.mShopProfileForGame, HYCommon.mShopProfileForLimit];
+ 1310| var L = lists[i];
+ 1313| var w = L[k];
+ 1325| /* ================= v3.2.0 新功能 ================= */
+ 1327| /* ---- 机关甲人 (设置部件与等级) ---- */
+ 1328| var ROBOT_SECTIONS = [
+ 1334| function robotProfile(id) { return ok(function () { return dy.profile.getById("Profiles/robot", id); }); }
+ 1335| function robotUpgap(id) { var p = robotProfile(id); return (p && p.upgap) || null; }
+ 1336| function robotExp(id) {
+ 1337| var n = 0;
+ 1344| function robotLevel(id) {
+ 1345| var up = robotUpgap(id);
+ 1347| var n = robotExp(id);
+ 1354| function robotExpForLevel(id, lv) {
+ 1355| var up = robotUpgap(id);
+ 1358| var s = 0;
+ 1362| function robotName(id) {
+ 1363| var p = robotProfile(id);
+ 1364| var nm = ok(function () { return dy.i18n.t(p.name + "_" + robotLevel(id)); });
+ 1367| function robotWear() {
+ 1368| var w = ok(function () {
+ 1370| var v = HYData.get("base.robot.wearId");
+ 1376| function robotSavedExp() {
+ 1377| var o = {};
+ 1381| function robotSaveCfg(wearArr, expObj) {
+ 1384| var cur = robotSavedExp();
+ 1386| M.vals["rb_exp"] = JSON.stringify(cur);
+ 1388| M.saveVals();
+ 1390| /** 把 MOD 的甲人配置写进存档 + 内存缓存 */
+ 1391| function robotPushToGame(wearArr, expObj, unlockAll) {
+ 1392| var b = HYData.get("core.robot") || {};
+ 1393| var w = (wearArr || robotWear()).slice();
+ 1394| var i, j, s, id;
+ 1403| var f = dy.cache.robotInfo.formula || {};
+ 1410| function robotReapply(silent) {
+ 1411| var w = null, e = null;
+ 1419| function refreshRobotUI() {
+ 1421| var scene = cc.director.getScene();
+ 1423| var walk = function (nd) {
+ 1426| var cs = nd.children || [];
+ 1430| var node = walk(scene);
+ 1434| function robotUnlockEntrance() {
+ 1445| function robotUnlockAll(silent) {
+ 1446| var b = HYData.get("core.robot") || {}, n = 0;
+ 1448| var id = ROBOT_SECTIONS[i].ids[j];
+ 1452| M.vals["rb_unlock"] = "1"; M.saveVals();
+ 1457| function robotEquip(section, id) {
+ 1458| var S = ROBOT_SECTIONS[~~section];
+ 1460| var p = robotProfile(id);
+ 1463| var w = robotWear();
+ 1465| var exp = {}, se = robotSavedExp();
+ 1473| function robotSetLevels() {
+ 1474| var w = robotWear(), exp = {}, n = 0, maxLv = 19;
+ 1476| var v = V("rb_lv" + s);
+ 1478| var lv = parseInt(v, 10);
+ 1480| var up = robotUpgap(w[s]) || [];
+ 1492| function robotMaxLevels(which) {
+ 1493| var ids = [], s;
+ 1496| var exp = {};
+ 1498| var id = ids[i]; if (!id) continue;
+ 1499| var up = robotUpgap(id); if (!up || !up.length) continue;
+ 1509| function openRobotPicker(section) {
+ 1510| var S = ROBOT_SECTIONS[~~section];
+ 1512| var items = [];
+ 1514| var id = S.ids[i];
+ 1521| /** 在线模式下拦截服务器刷新, 保住 MOD 的甲人修改 */
+ 1522| function installRobotHook() {
+ 1526| var raw = dy.http.getRobotInfo;
+ 1531| var w = null, e = null;
+ 1545| /* ---- 建筑等级 ---- */
+ 1546| function fillRobotNames() {
+ 1549| var tab = window.i18n && window.i18n.languages && window.i18n.languages[dy.cache.language];
+ 1551| var R = dy.profile.getAll("Profiles/robot") || {}, n = 0;
+ 1553| var p = R[id] || {}, base = p.name, up = p.upgap || [];
+ 1555| var n0 = tab[base + "_1"];
+ 1565| function talentRatio() {
+ 1566| var r = 1;
+ 1570| function buildProfile(id) { return ok(function () { return dy.profile.getById("Profiles/build_profile", id); }); }
+ 1571| function buildLevels(id) {
+ 1572| var p = buildProfile(id), out = [];
+ 1577| function buildEntryName(id, lv) {
+ 1578| var p = buildProfile(id), e = p && p[lv];
+ 1581| function buildCurLevel(id) {
+ 1582| var v = ok(function () { return HYData.get("core.builds." + id + ".LEVEL"); });
+ 1585| function buildInfoText() {
+ 1586| var id = String(M.vals["bld_id"] || "").replace(/\s/g, "");
+ 1589| var cur = buildCurLevel(id);
+ 1592| function setBuildLevel(id, lv, silent) {
+ 1596| var p = buildProfile(id);
+ 1599| var lock0 = ~~ok(function () { return HYData.get("core.builds." + id + ".LOCK"); }) || 0;
+ 1606| var entry = p[lv];
+ 1608| var lock = ~~ok(function () { return HYData.get("core.builds." + id + ".LOCK"); }) || 0;
+ 1609| var num = parseInt(lv, 10);
+ 1615| var d = entry.DURATION;
+ 1621| var mx = HYData.get("core.builds." + id + ".DURATION_MAX"), cur = HYData.get("core.builds." + id + ".DURATION");
+ 1632| function openBuildPicker() {
+ 1633| var prof = ok(function () { return dy.profile.getAll("Profiles/build_profile"); }) || {};
+ 1634| var items = [];
+ 1636| var lvs = buildLevels(id);
+ 1638| var names = [];
+ 1640| var cur = buildCurLevel(id);
+ 1648| function openBuildLevelPicker() {
+ 1649| var id = String(M.vals["bld_id"] || V("bld_id") || "").replace(/\s/g, "");
+ 1651| var lvs = buildLevels(id);
+ 1653| var items = [];
+ 1659| function maxAllBuilds() {
+ 1660| var b = ok(function () { return HYData.get("core.builds"); }) || {};
+ 1661| var n = 0, fail = 0;
+ 1664| var cur = b[id] && b[id].LEVEL;
+ 1666| var lvs = buildLevels(id);
+ 1668| var curS = String(cur), target = null, i;
+ 1671| var mx = 0;
+ 1682| /* ---- 天赋一键解锁 ---- */
+ 1683| function talentUnlockInfo() {
+ 1684| var tal = ok(function () { return dy.profile.getAll("Profiles/talent_profile"); }) || {};
+ 1685| var total = 0, n = 0;
+ 1693| function unlockAllTalents(silent) {
+ 1694| var tal = ok(function () { return dy.profile.getAll("Profiles/talent_profile"); }) || {};
+ 1695| var n = 0;
+ 1703| var info = talentUnlockInfo();
+ 1709| function talentFullUnlock() {
+ 1710| var n = unlockAllTalents(true), m = talentMax(true);
+ 1716| /* ---- 心情笔记跳过按钮(原生弹窗) ---- */
+ 1717| function addMoodSkipButton(panel) {
+ 1719| var src = panel.nodClose;
+ 1721| var clone = cc.instantiate(src);
+ 1723| var btn = clone.getComponent(cc.Button);
+ 1726| var locs = clone.getComponentsInChildren("LocaleLabel") || [];
+ 1729| /* 面板入场景前 getComponentInChildren 有时拿不到, 多补几次确保显示"跳过" */
+ 1730| var applyLab = function () {
+ 1733| var l = clone.getComponentInChildren(cc.Label);
+ 1747| /* 关键: 拦住冒泡, 否则这次点击会走到根按钮 buttonListenter 把窗口直接关掉 */
+ 1761| function installMoodSkipHook() {
+ 1763| var cls = ok(function () { return cc.js.getClassByName("PanelMoodAlert"); });
+ 1766| var proto = cls.prototype;
+ 1767| var rawInit = proto.init;
+ 1769| var self = this;
+ 1770| var chars = (self.msg || "").split(""), spd = 0.1;
+ 1772| var total = chars.length, i = 0;
+ 1788| var self = this;
+ 1796| /* ---- 新菜单 ---- */
+ 1797| function v3Tabs(tabs) {
+ 1798| var ai, aid, anm;
+ 1799| var vt = [];   /* v3 新增页先收集, 最后插入到"物品"页之后 */
+ 1800| /* 商店 */
+ 1807| /* 状态(需求2) */
+ 1808| var st = [{ type: "text", title: "改完点最下方[应用数值修改]; 锁定后游戏内变化会被持续写回" }];
+ 1809| var ATTRS = [["7004", "外伤"], ["7005", "内伤"], ["7006", "饥饿"], ["7000", "精神"], ["7001", "失眠"]];
+ 1819| /* 天数(需求3) */
+ 1827| /* 副本(需求4) */
+ 1828| var pi = M.potInfo;
+ 1829| var potText = pi ? (pi.name + "  " + (pi.kind ? (pi.cur + "/" + pi.total) : "没有进度")) : "尚未检测";
+ 1837| /* 限时副本(需求5) */
+ 1843| /* 成就(需求6) */
+ 1849| /* 图鉴(需求8) */
+ 1857| /* 宠物(需求9/10) */
+ 1858| var eg = M.eagle;
+ 1875| /* 机关甲人 (v3.2.0: 任意部件 + 等级) */
+ 1876| var rbW = robotWear();
+ 1877| var rbItems = [
+ 1887| var RS = ROBOT_SECTIONS[rs];
+ 1898| /* 建筑(需求11) */
+ 1912| /* 天赋 (v3.2.0): 一键解锁全部(含非卖品) */
+ 1913| var tally = talentUnlockInfo();
+ 1921| /* 设置(需求12 等) */
+ 1930| /* ---- 新菜单事件分发 ---- */
+ 1931| function v3Dispatch(id, val) {
+ 1932| var on = (val === "1" || val === true);
+ 1980| var ATTRS2 = ["7004", "7005", "7006", "7000", "7001"];
+ 1982| var a2 = ATTRS2[i];
+ 1983| var mv = V("am_" + a2);
+ 1987| var a3 = ATTRS2[j], cv = V("av_" + a3);
+ 1989| var av3 = parseInt(cv, 10);
+ 1991| /* 已开锁定的项: 锁存值跟随刚应用的新值(否则会立刻被旧锁存值回写) */
+ 1999| var lid = id.substring(3);
+ 2004| var AA = ["7004", "7005", "7006", "7000", "7001"];
+ 2011| function v3Pick(o) {
+ 2012| var action = o.action || "grant";
+ 2014| var ids = o.ids || [], n = 0;
+ 2021| var sel = (o.ids && o.ids.length) ? o.ids[0] : o.count;
+ 2026| var rbSec = parseInt(action.substring(6), 10);
+ 2032| M.vals["bld_id"] = String(o.ids[0]); M.vals["bld_lv"] = ""; M.saveVals();
+ 2045| function installV3Hooks() {
+ 2047| M.setGameDay = setGameDay; M.detectPot = detectPot; M.setPotProgress = setPotProgress;
+ 2048| M.openPotPicker = openPotPicker; M.completeAchieve = completeAchieve; M.completeAllAchieves = completeAllAchieves;
+ 2049| M.openAchievePicker = openAchievePicker; M.unlockAtlas = unlockAtlas; M.unlockAllAtlas = unlockAllAtlas;
+ 2050| M.atlasInfo = atlasInfo; M.setEagle = setEagle; M.setWolf = setWolf; M.fixAllBuilds = fixAllBuilds;
+ 2051| M.setLimitedDungeons = setLimitedDungeons; M.hookSceneMainNow = hookSceneMainNow;
+ 2052| M.setRoleAttr = setRoleAttr; M.setRoleAttrMax = setRoleAttrMax;
+ 2053| M.lockAttrCurrent = lockAttrCurrent; M.restoreLockedAttrs = restoreLockedAttrs;
+ 2054| M.robotEquip = robotEquip; M.robotSetLevels = robotSetLevels; M.robotMaxLevels = robotMaxLevels;
+ 2055| M.robotUnlockAll = robotUnlockAll; M.robotUnlockEntrance = robotUnlockEntrance;
+ 2056| M.robotLevel = robotLevel; M.robotWear = robotWear; M.robotExpForLevel = robotExpForLevel;
+ 2057| M.setBuildLevel = setBuildLevel; M.maxAllBuilds = maxAllBuilds; M.buildLevels = buildLevels;
+ 2058| M.openBuildPicker = openBuildPicker; M.openBuildLevelPicker = openBuildLevelPicker;
+ 2059| M.unlockAllTalents = unlockAllTalents; M.talentFullUnlock = talentFullUnlock;
+ 2060| M.installMoodSkipHook = installMoodSkipHook; M.addMoodSkipButton = addMoodSkipButton;
+ 2061| M.installRobotHook = installRobotHook;
+ 2065| M.eagle.bloodMax = Math.max(0, nv("eg_blood_max", 0));
+ 2066| M.eagle.friendMax = Math.max(0, nv("eg_friend_max", 0));
+ 2067| var AA0 = ["7004", "7005", "7006", "7000", "7001"];
+ 2068| var lockAll0 = sv("lockAllAttrs", false);
+ 2071| var lv0 = ok(function () { return HYData.get("core.role." + AA0[q]); });
+ 2090| function num(v, d) { var n = parseInt(v, 10); return isNaN(n) ? d : n; }
+ 2092| /* ---------------- 控件状态记忆 (localStorage) ---------------- */
+ 2095| var s = M.persist ? cc.sys.localStorage.getItem("hymod_vals2") : null;
+ 2098| function saveVals() { if (!M.persist) return; ok(function () { cc.sys.localStorage.setItem("hymod_vals2", JSON.stringify(M.vals)); }); }
+ 2099| /** 取持久化原始值(滑块 / 输入框) */
+ 2100| function pv(id, def) { var v = M.vals[id]; return (v === undefined || v === null || v === "") ? def : v; }
+ 2101| /** 取持久化开关值(布尔) */
+ 2102| function sv(id, def) {
+ 2103| var v = M.vals[id];
+ 2107| function nv(id, def) { return num(pv(id, def), def); }
+ 2108| M.pv = pv; M.sv = sv; M.nv = nv; M.saveVals = saveVals;
+ 2110| function buildMenu() {
+ 2111| var tabs = [];
+ 2112| /* 1. 物品 */
+ 2132| /* 2. 战斗 (原"属性"页: 血量写入 + 战斗数值) */
+ 2150| /* 3. 装备强化 */
+ 2160| /* 4. 皮肤/角色 */
+ 2161| var skinItems = [
+ 2165| var groups = [["1000", "罗兰/厨子", ["100001", "100002", "100003", "100004"]],
+ 2173| var sid = groups[g][2][s];
+ 2185| /* 5. 安全 */
+ 2195| /* 6. 关于 */
+ 2207| function pushMenu() {
+ 2208| var m = jstr(buildMenu());
+ 2213| M.pushMenu = pushMenu;
+ 2214| /* ---------------- 消息分发 ---------------- */
+ 2215| function V(id) { return M.vals[id]; }
+ 2216| function dispatch(id, val) {
+ 2220| var items = ok(function () { return pickerItems(); }) || [];
+ 2232| var hp = num(V("life_set"), 999);
+ 2246| /* 开关 */
+ 2253| /* 纯文本输入框: 只登记值, 使用时再读取 */
+ 2255| /* 滑块 / 输入框 */
+ 2256| var n = num(val, 0);
+ 2281| var o = JSON.parse(json);
+ 2283| var ids = o.ids || [], cnt = num(o.count, 99), target = o.target || "bag";
+ 2294| /* ---------------- 启动 ---------------- */
+ 2295| function boot() {
+ 2306| M.ready = true;
+ 2310| M.boot = boot;

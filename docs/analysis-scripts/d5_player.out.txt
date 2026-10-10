@@ -1,0 +1,460 @@
+ 54801| DDERROR("UpdateStateError " + t + " " + n + " " + i);
+ 54802| l = "waterPlague" == t ? d : 0;
+ 54803| }
+ 54804| "health" == t && n < 0 ? e("HYCommon").addHealthScore(-n) : "hp" == t && n < 0 && e("HYCommon").addHPScore(-n);
+ 54805| e("HYData").set("core.role." + i + "." + t, l);
+ 54806| }
+ 54807| if ("hp" == t && o.isWeak(i)) {
+ 54808| DDLOG("Role WEAK :" + i);
+ 54809| r.post(e("HYKey").kRoleGetWeak, {
+ 54810| roleIndex: i
+ 54811| });
+ 54812| e("HYCommon").addDeathScore();
+ 54813| } else ;
+ 54814| },
+ 54815| getMData: function() {
+ 54816| return this.mData;
+ 54817| },
+ 54818| setMData: function(e) {
+ 54819| this.mData = e;
+ 54820| },
+ 54821| getState: function(t, n) {
+ 54822| n = n || this.mCurRole;
+ 54823| return e("HYData").get("core.role." + n + "." + t);
+ 54824| },
+ 54825| getStateRatio: function(e, t) {
+ 54826| var n = this;
+ 54827| return n.getState(e, t) / n.getState(e + "Max", t);
+ 54828| },
+ 54829| getImmunity: function(e) {
+ 54830| return 0;
+ 54831| },
+ 54832| getColdBase: function(e) {
+ 54833| return 37;
+ 54834| },
+ 54835| getColdRes: function(e) {
+ 54836| return 12;
+ 54837| },
+ 54838| getRoleNum: function() {
+ 54839| return this.getRoleList().length;
+ 54840| },
+ 54841| getRoleList: function() {
+ 54842| if (this.mRoleList) {
+ 54843| 0 == this.mRoleList.length && this.updateRoleList();
+ 54844| return e("DY").utils.clone(this.mRoleList);
+ 54845| }
+ 54846| return [];
+ 54847| },
+ 54848| getAliveRoles: function() {
+ 54849| for (var e = this, t = [], n = 1; n <= e.getRoleNum(); n++) e.isWeak(n) || t.push(n);
+ 54850| return t;
+ 54851| },
+ 54852| getRoleIds: function() {
+ 54853| for (var t = this, n = [], i = 1; i <= t.getRoleNum(); i++) {
+ 54854| var o = e("HYData").get("core.role." + i + ".roleId");
+ 54855| o = "string" == typeof o ? parseInt(o) : o;
+ 54856| n.push(o);
+ 54857| }
+ 54858| return n;
+ 54859| },
+ 54860| getIndexByRoleId: function(t) {
+ 54861| for (var n = this, i = 1; i <= n.getRoleNum(); ++i) if (e("HYData").get("core.role." + i + ".roleId") == t) return i;
+ 54862| return -1;
+ 54863| },
+ 54864| getRoleIdByIndex: function(t) {
+ 54865| return e("HYData").get("core.role." + t + ".roleId");
+ 54866| },
+ 54867| getTeamExploring: function() {
+ 54868| for (var e = this, t = 1; t <= e.getRoleNum(); t++) if (e.isExploring(t)) return !0;
+ 54869| return !1;
+ 54870| },
+ 54871| getExploringRoles: function(e) {
+ 54872| for (var t = this, n = [], i = {}, o = t.getRoleList(), a = 0; a < o.length; a++) if (t.isExploring(o[a])) {
+ 54873| n.push(o[a]);
+ 54874| i[o[a]] = 1;
+ 54875| }
+ 54876| return e ? i : n;
+ 54877| },
+ 54878| getHomeRoles: function(e) {
+ 54879| for (var t = this, n = [], i = {}, o = t.getRoleList(), a = 0; a < o.length; a++) if (!t.isExploring(o[a])) {
+ 54880| n.push(o[a]);
+ 54881| i[o[a]] = 1;
+ 54882| }
+ 54883| return e ? i : n;
+ 54884| },
+ 54885| isSleeping: function(t) {
+ 54886| t = t || this.mCurRole;
+ 54887| var n = e("HYData").get("core.role." + t + ".action");
+ 54888| return n && 2 == n.type && n.param && !n.param.nextId;
+ 54889| },
+ 54890| isFreeAction: function(t) {
+ 54891| t = t || this.mCurRole;
+ 54892| var n = e("HYData").get("core.role." + t + ".action");
+ 54893| if (!n) return !0;
+ 54894| var i = n.type;
+ 54895| return !i || 2 == i;
+ 54896| },
+ 54897| isExploring: function(t) {
+ 54898| t = t || this.mCurRole;
+ 54899| var n = e("HYData").get("core.role." + t + ".action.type");
+ 54900| return 10 == n || 11 == n;
+ 54901| },
+ 54902| getMaxLoad: function(t, n) {
+ 54903| for (var i = this, o = e("DY").config.BASE_MAX_LOAD, a = t || i.getRoleList(), r = 0; r < a.length; r++) {
+ 54904| var s = a[r];
+ 54905| i.isWeak(parseInt(s)) || (o += parseInt(i.getState("load", s)));
+ 54906| }
+ 54907| if (o) {
+ 54908| o += e("HYData").get("base.bag.extraLoad") || 0;
+ 54909| e("ModelShop").getMonthlyCardAddTeamWeight(function(t) {
+ 54910| o += t;
+ 54911| e("HYData").get("core.config.isDungeonAddADBuff") && (o += e("DY").config.AD_REWARD.DUNGEON_BUFF.load);
+ 54912| n && n(o);
+ 54913| });
+ 54914| } else n && n(o);
+ 54915| },
+ 54916| isWeak: function(e) {
+ 54917| var t = this;
+ 54918| e = e || this.mCurRole;
+ 54919| return t.getState("hp", e) <= 0;
+ 54920| },
+ 54921| rolesWeak: function(t) {
+ 54922| t = t || e("HYPlayer").getRoleList();
+ 54923| for (var n = 0; n < t.length; n++) {
+ 54924| var i = t[n];
+ 54925| if (!e("HYPlayer").isWeak(i)) return !1;
+ 54926| }
+ 54927| return !0;
+ 54928| },
+ 54929| onRoleWeak: function(t) {
+ 54930| var n = this;
+ 54931| for (var i in n.mData) if (!(t && i == t || 1 == i || n.isWeak(i))) return;
+ 54932| var o = e("HYPlayer").isRolesBusy();
+ 54933| o > 0 && e("HYTime").update(n.UT_FLY, o);
+ 54934| n.getMaxLoad(null, function(t) {
+ 54935| e("HYContainer").HYBag.setMaxLoad(t);
+ 54936| });
+ 54937| },
+ 54938| _refreshTeamActions: function(t) {
+ 54939| var n = this;
+ 54940| for (var i in n.mData) {
+ 54941| var o = e("HYData").get("core.role." + i + ".action");
+ 54942| if (o) if (o && o.time > t) {
+ 54943| e("HYData").set("core.role." + i + ".action.time", o.time - t);
+ 54944| r.post(e("HYKey").kProductProgress, {
+ 54945| roleIdx: i,
+ 54946| timeLeft: o.time,
+ 54947| type: o.type,
+ 54948| param: o.param
+ 54949| });
+ 54950| } else if (o && o.time <= t) {
+ 54951| e("HYCommon").event(o.award);
+ 54952| o.param && o.param.fn && e(o.param.fn.fnName)[o.param.fn.fnFunc]();
+ 54953| o.param && o.param.skillBuff && e("HYSkillBuff").addBuff(o.param.skillBuff, i);
+ 54954| e("HYData").clear("core.role." + i + ".action");
+ 54955| r.post(e("HYKey").KRoleEndBusy, i);
+ 54956| if (0 < o.type && o.type < 10 && o.param) {
+ 54957| o.param.lastTime && e("HYData").set("core.raise." + o.param.productId, {
+ 54958| time: o.param.lastTime,
+ 54959| maxTime: o.param.lastTime,
+ 54960| autoClear: o.param.autoClear,
+ 54961| makeCnt: o.param.makeCnt || 1
+ 54962| });
+ 54963| r.post(e("HYKey").kProductProgress, {
+ 54964| roleIdx: i,
+ 54965| timeLeft: 0,
+ 54966| type: o.type,
+ 54967| param: o.param
+ 54968| });
+ 54969| e("HYBuild").getFireParam() && r.post(e("HYKey").KUpdateTemperature, e("HYNature").temperature(1));
+ 54970| } else 10 == o.type || 11 == o.type ? e("HYData").set("core.role." + i + ".action.type", o.type) : 13 == o.type && r.post(e("HYKey").kProductProgress, {
+ 54971| roleIdx: i,
+ 54972| timeLeft: 0,
+ 54973| type: o.type,
+ 54974| param: o.param
+ 54975| });
+ 54976| }
+ 54977| }
+ 54978| },
+ 54979| getTeamBaseSpeed: function(t, n) {
+ 54980| var i = this, o = 0;
+ 54981| t = t || i.getExploringRoles();
+ 54982| for (var a = 0; a < t.length; a++) {
+ 54983| var r = t[a], s = e("HYData").get("core.role." + r + ".travelSp");
+ 54984| (!o || s < o) && (o = s);
+ 54985| }
+ 54986| n && n(o);
+ 54987| },
+ 54988| getTeamSpeed: function(t, n) {
+ 54989| this.getTeamBaseSpeed(t, function(t) {
+ 54990| t ? e("ModelShop").getMonthlyCardAddTeamSpeed(function(i) {
+ 54991| var o = 1;
+ 54992| i && (o += i - 1);
+ 54993| e("HYData").get("core.config.isDungeonAddADBuff") && (o += e("DY").config.AD_REWARD.DUNGEON_BUFF.speed - 1);
+ 54994| t *= o;
+ 54995| n && n(t);
+ 54996| }) : n && n(0);
+ 54997| });
+ 54998| },
+ 54999| updateRoleAttr: function(t, n, i) {
+ 55000| this.updateState(t, n, i);
+ 55001| var o = e("HYData").get("core.role." + i + "." + t) / e("HYData").get("core.role." + i + "." + t + "Max");
+ 55002| r.post(e("HYKey").kRoleState, {
+ 55003| role: i,
+ 55004| attr: t,
+ 55005| num: o
+ 55006| });
+ 55007| },
+ 55008| setCurRole: function(e) {
+ 55009| this.mCurRole = e;
+ 55010| },
+ 55011| getCurRole: function(e) {
+ 55012| return this.mCurRole;
+ 55013| },
+ 55014| isKeyRole: function(t) {
+ 55015| return e("HYData").getCurMode() == e("Const").EnumGameMode.STORY && 1 == (t = t || this.mCurRole);
+ 55016| },
+ 55017| isRoleBusy: function(t) {
+ 55018| var n = this, i = t || n.mCurRole, o = e("HYData").get("core.role." + i + ".action");
+ 55019| return o && o.time ? o.time : 0;
+ 55020| },
+ 55021| clearRoleBusy: function() {
+ 55022| for (var t = this.getRoleList(), n = 0; n < t.length; n++) {
+ 55023| var i = t[n];
+ 55024| e("HYData").clear("core.role." + i + ".action");
+ 55025| r.post(e("HYKey").KRoleEndBusy, i);
+ 55026| }
+ 55027| r.post(e("HYKey").kRoleGetBusy);
+ 55028| },
+ 55029| setRoleBusy: function(t, n, i, o, a) {
+ 55030| var r = this;
+ 55031| a = a || r.mCurRole;
+ 55032| var s = e("HYTime").time(), c = {
+ 55033| type: i,
+ 55034| time: t,
+ 55035| award: n,
+ 55036| param: o,
+ 55037| beginTime: s,
+ 55038| endTime: s + t
+ 55039| };
+ 55040| e("HYData").set("core.role." + a + ".action", c);
+ 55041| if (!r.isWeak(a)) {
+ 55042| var l = e("HYPlayer").isRolesBusy();
+ 55043| l > 0 && e("HYTime").update(e("HYTime").UT_FLY, l);
+ 55044| e("DYNotify").post(e("HYKey").KRoleBusy, a);
+ 55045| }
+ 55046| },
+ 55047| isRolesBusy: function() {
+ 55048| var e = this, t = -1;
+ 55049| for (var n in e.mData) if (!e.isWeak(n)) {
+ 55050| var i = e.isRoleBusy(n);
+ 55051| t = -1 == t ? i : Math.min(i, t);
+ 55052| }
+ 55053| return t;
+ 55054| },
+ 55055| getFightParams: function(t, n) {
+ 55056| var i = this, o = [], a = t, r = function(e) {
+ 55057| for (var t = {}, n = 0; n < e.length; n++) {
+ 55058| var i = e[n], o = i.weapon[3];
+ 55059| o && !t[o.id] ? t[o.id] = o : o && t[o.id] && (i.weapon[3] = t[o.id]);
+ 55060| var a = i.weapon[6];
+ 55061| a && !t[a.id] ? t[a.id] = a : a && t[a.id] && (i.weapon[6] = t[a.id]);
+ 55062| }
+ 55063| }, s = function() {
+ 55064| i._petFightParams(function(e) {
+ 55065| if (e) {
+ 55066| e.idx = o.length + 1;
+ 55067| o.push(e);
+ 55068| }
+ 55069| n && n(o);
+ 55070| });
+ 55071| };
+ 55072| !function t(n) {
+ 55073| if (n >= a.length) {
+ 55074| r(o);
+ 55075| s();
+ 55076| } else {
+ 55077| var c = a[n];
+ 55078| i.isWeak(c) ? t(n + 1) : i._RoleFightParams(c, e("HYData").get("core.role." + c + ".roleId"), function(e) {
+ 55079| o.push(e);
+ 55080| t(n + 1);
+ 55081| });
+ 55082| }
+ 55083| }(0);
+ 55084| },
+ 55085| _RoleFightParams: function(t, n, i) {
+ 55086| var o = this;
+ 55087| e("HYProfile").cloneById("role", n, function(a) {
+ 55088| var r = e("DY").utils.clone(e("HYData").get("core.role." + t));
+ 55089| r.idx = t;
+ 55090| r.id = a.id;
+ 55091| r.name = a.name;
+ 55092| r.skin = o.getSkin(n);
+ 55093| r.isWeak = 100 * e("HYData").get("core.role." + t + ".mentality") / e("HYData").get("core.role." + t + ".mentalityMax") < 20;
+ 55094| var s = function(t) {
+ 55095| r.buff = t;
+ 55096| if (e("HYData").getCurMode() == e("Const").EnumGameMode.MAZE) {
+ 55097| var n = e("HYEndlessMaze").skillMgr;
+ 55098| r.buff[-4] = {
+ 55099| template: "normal",
+ 55100| param: [ "atkD", n.getEffect("atk") ]
+ 55101| };
+ 55102| r.buff[-5] = {
+ 55103| template: "normal",
+ 55104| param: [ "defD", n.getEffect("def") ]
+ 55105| };
+ 55106| }
+ 55107| i && i(r);
+ 55108| };
+ 55109| r.weapon = c.getEquipContainer(t).fightParams();
+ 55110| var l = e("HYItem");
+ 55111| if (o.shieldWall(n)) {
+ 55112| r.weapon[7] = e("DY").utils.clone(l.getEquipProfile("3703"));
+ 55113| r.weapon[7].name = l.getItemProfile("3703").name;
+ 55114| r.weapon[7].idx = -1;
+ 55115| r.weapon[7].duration = 100;
+ 55116| r.weapon[7].buff = {};
+ 55117| }
+ 55118| e("HYPlayer").queryActiveSkillByRoleIdx(t, function(n) {
+ 55119| n ? e("HYProfile").getById("activeskill", n, function(n) {
+ 55120| r.activeSkill = {
+ 55121| id: n.id,
+ 55122| icon: n.icon,
+ 55123| template: n.template,
+ 55124| speed: n.speed,
+ 55125| factor: n.factor,
+ 55126| cost: n.cost,
+ 55127| name: n.name
+ 55128| };
+ 55129| e("HYSkillBuff").getFightBuff(t, s);
+ 55130| }) : e("HYSkillBuff").getFightBuff(t, s);
+ 55131| });
+ 55132| });
+ 55133| },
+ 55134| _petFightParams: function(t) {
+ 55135| var n = e("PetMgr").getCarriedPet();
+ 55136| !n || n.hp() <= 0 ? t && t() : n.getBattleParam(function(n) {
+ 55137| n.fightPos = e("HYData").get("core.pet.fightPos") || 0;
+ 55138| n.fightMode = e("HYData").get("core.pet.fightMode") || 0;
+ 55139| if (e("HYData").getCurMode() == e("Const").EnumGameMode.MAZE) {
+ 55140| var i = e("HYEndlessMaze").skillMgr;
+ 55141| n.buff[-4] = {
+ 55142| template: "normal",
+ 55143| param: [ "atkD", i.getEffect("atk") ]
+ 55144| };
+ 55145| n.buff[-5] = {
+ 55146| template: "normal",
+ 55147| param: [ "defD", i.getEffect("def") ]
+ 55148| };
+ 55149| }
+ 55150| t && t(n);
+ 55151| });
+ 55152| },
+ 55153| getNowAttrReduction: function() {
+ 55154| var t = this, n = e("HYData").get("core.dungeon.id"), i = e("HYTime").day();
+ 55155| if (!t.mAttrReduction || t.mAttrReduction.nowDungeonId != n || t.mAttrReduction.nowDay != i) {
+ 55156| for (var o = e("HYData").get("core.dungeon.difficultyS") || [], a = o.length, r = 1, s = 0; s < a; s++) {
+ 55157| var c = o[s].split(","), l = parseInt(c[0]), d = parseInt(c[1]);
+ 55158| if (0 == s) {
+ 55159| if (i < l) {
+ 55160| r = e("DY").config.DIFFICULTY_LEVEL_PARAM[0][0];
+ 55161| break;
+ 55162| }
+ 55163| } else if (s == a - 1 && i >= d) {
+ 55164| r = e("DY").config.DIFFICULTY_LEVEL_PARAM[0][1];
+ 55165| break;
+ 55166| }
+ 55167| if (l <= i && i < d) {
+ 55168| r = parseFloat(c[2]);
+ 55169| break;
+ 55170| }
+ 55171| }
+ 55172| t.mAttrReduction = {
+ 55173| nowDungeonId: n,
+ 55174| nowDay: i,
+ 55175| nowAttrReduction: r
+ 55176| };
+ 55177| }
+ 55178| return t.mAttrReduction.nowAttrReduction;
+ 55179| },
+ 55180| resetStateBackHome: function() {
+ 55181| var t = this;
+ 55182| for (var n in t.mData) {
+ 55183| var i = e("HYData").get("core.role." + n + ".action");
+ 55184| !i || 10 != i.type && 11 != i.type || e("HYData").clear("core.role." + n + ".action");
+ 55185| }
+ 55186| },
+ 55187| revive: function(t) {
+ 55188| for (var n = this, i = 0; i < s.STATE.length; i++) {
+ 55189| var o = s.STATE[i];
+ 55190| if ("waterPlague" == o) e("HYData").set("core.role." + t + "." + o, 0); else {
+ 55191| var a = n.getState(o + "Max", t);
+ 55192| e("HYData").set("core.role." + t + "." + o, a);
+ 55193| }
+ 55194| }
+ 55195| e("HYData").setRelative("core.reviveCnt", 1);
+ 55196| var c = e("HYData").get("core.role")[t].roleId;
+ 55197| e("HYDisease").clearAllDisease(c);
+ 55198| e("HYStat").AddResurrectionCnt();
+ 55199| e("HYStat").setPlayerProgress(13, {
+ 55200| roleId: c
+ 55201| });
+ 55202| e("HYData").trySave();
+ 55203| r.post(e("HYKey").kRoleState, {
+ 55204| role: t
+ 55205| });
+ 55206| e("DYNotify").post(e("HYKey").KUpdateWater);
+ 55207| r.post(e("HYKey").KReviveRole, t);
+ 55208| e("HYTime").isFlying() || this.initRoleBusy();
+ 55209| n.getMaxLoad(null, function(t) {
+ 55210| e("HYContainer").HYBag.setMaxLoad(t);
+ 55211| });
+ 55212| },
+ 55213| getRoleNameById: function(t, n) {
+ 55214| e("HYProfile").getById("role", t, function(t) {
+ 55215| n && n(e("DY").i18n.t(t.name));
+ 55216| });
+ 55217| },
+ 55218| getCurProduct: function(t) {
+ 55219| var n = this, i = [];
+ 55220| for (var o in n.mData) {
+ 55221| var a = e("HYData").get("core.role." + o + ".action");
+ 55222| if (a && a.type == t && a.param) {
+ 55223| var r = {};
+ 55224| r.productId = a.param.productId;
+ 55225| r.roleIdx = o;
+ 55226| r.timeLeft = a.time;
+ 55227| r.param = a.param;
+ 55228| i.push(r);
+ 55229| }
+ 55230| }
+ 55231| return i;
+ 55232| },
+ 55233| clearWaterPlague: function() {
+ 55234| var t = this;
+ 55235| for (var n in t.mData) e("HYData").set("core.role." + n + ".waterPlague", 0);
+ 55236| },
+ 55237| isHaveMastery: function(t, n, i) {
+ 55238| var o = e("HYData").get(String.format("core.role.{0}.roleId", t));
+ 55239| e("HYProfile").getById("role", o, function(e) {
+ 55240| var t = e.talent;
+ 55241| i(t == n);
+ 55242| });
+ 55243| },
+ 55244| changeHpToHealth: function(t) {
+ 55245| var n = this, i = e("DY").config.MASTERY_HP_TO_HEALTH;
+ 55246| if (e("HYData").get(String.format("core.role.{0}.hp", t)) > i[0]) {
+ 55247| n.updateState("hp", -i[0], t);
+ 55248| n.updateState("health", i[1], t);
+ 55249| e("HYCommon").toast(e("DY").i18n.t("S_292").format({
+ 55250| hp: i[0],
+ 55251| health: i[1]
+ 55252| }));
+ 55253| } else e("HYCommon").toast(e("DY").i18n.t("S_290"));
+ 55254| },
+ 55255| addPlayerEffect: function(e, t, n, i, o, a) {
+ 55256| DDLOG("增加玩家周到的作用效果, {0}, {1}, {2}, {3}, {4}", e, t, n, i, o);
+ 55257| var r = this;
+ 55258| r.mEffectDict || (r.mEffectDict = {});
+ 55259| r.mEffectDict[e] || (r.mEffectDict[e] = {});
+ 55260| r.mEffectDict[e][t] || (r.mEffectDict[e][t] = []);

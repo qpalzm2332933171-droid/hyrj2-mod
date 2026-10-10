@@ -1,0 +1,138 @@
+{
+    "1000": {
+        "id": 1000, 
+        "sortId": 1, 
+        "max": 2, 
+        "condition": "831000&831001", 
+        "msg": "monolog_1000", 
+        "checkEvent": "KOutHome"
+    }, 
+    "1001": {
+        "id": 1001, 
+        "sortId": 2, 
+        "max": 1, 
+        "condition": "831002&831003&831004", 
+        "msg": "monolog_1001", 
+        "checkEvent": "KGoHome"
+    }, 
+    "1002": {
+        "id": 1002, 
+        "sortId": 3, 
+        "max": 1, 
+        "condition": "(831005||831006)&831004", 
+        "msg": "monolog_1002", 
+        "checkEvent": "KOutHome"
+    }, 
+    "1003": {
+        "id": 1003, 
+        "sortId": 4, 
+        "max": 2, 
+        "condition": "831007", 
+        "msg": "monolog_1003", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1004": {
+        "id": 1004, 
+        "sortId": 5, 
+        "max": 2, 
+        "condition": "831008", 
+        "msg": "monolog_1004", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1005": {
+        "id": 1005, 
+        "sortId": 6, 
+        "max": 2, 
+        "condition": "831009", 
+        "msg": "monolog_1005", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1006": {
+        "id": 1006, 
+        "sortId": 7, 
+        "max": 1, 
+        "condition": "831010", 
+        "msg": "monolog_1006", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1007": {
+        "id": 1007, 
+        "sortId": 8, 
+        "max": 1, 
+        "condition": "831011", 
+        "msg": "monolog_1007", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1008": {
+        "id": 1008, 
+        "sortId": 9, 
+        "max": 1, 
+        "condition": "831012", 
+        "msg": "monolog_1008", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1009": {
+        "id": 1009, 
+        "sortId": 10, 
+        "max": 1, 
+        "condition": "831013", 
+        "msg": "monolog_1009", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1010": {
+        "id": 1010, 
+        "sortId": 11, 
+        "max": 1, 
+        "condition": "831014", 
+        "msg": "monolog_1010", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1011": {
+        "id": 1011, 
+        "sortId": 12, 
+        "max": 1, 
+        "condition": "831015", 
+        "msg": "monolog_1011", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1012": {
+        "id": 1012, 
+        "sortId": 13, 
+        "max": 1, 
+        "condition": "831016&831022", 
+        "msg": "monolog_1012", 
+        "checkEvent": "KUpdateTemperature"
+    }, 
+    "1013": {
+        "id": 1013, 
+        "sortId": 14, 
+        "max": 1, 
+        "condition": "831017&831023", 
+        "msg": "monolog_1013", 
+        "checkEvent": "KUpdateTemperature"
+    }, 
+    "1014": {
+        "id": 1014, 
+        "sortId": 15, 
+        "max": 2, 
+        "condition": "831018", 
+        "msg": "monolog_1014", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1015": {
+        "id": 1015, 
+        "sortId": 16, 
+        "max": 2, 
+        "condition": "831019", 
+        "msg": "monolog_1015", 
+        "checkEvent": "kRoleState"
+    }, 
+    "1016": {
+        "id": 1016, 
+        "sortId": 17, 
+        "max": 1, 
+        "condition": "831024||831025||831026||831027", 
+        "msg": "monolog_1016", 
+        "checkEvent": "kRoleState"
+    }
+}

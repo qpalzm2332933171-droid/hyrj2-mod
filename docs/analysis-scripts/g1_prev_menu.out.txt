@@ -1,0 +1,87 @@
+TAB: 商店
+TAB: 状态
+TAB: 天数
+TAB: 副本
+TAB: 限时副本
+TAB: 成就
+TAB: 图鉴
+TAB: 宠物
+TAB: 甲人
+TAB: 建筑
+TAB: 天赋
+TAB: 设置
+TAB: 物品
+TAB: 战斗
+TAB: 装备
+TAB: 皮肤角色
+TAB: 安全
+TAB: 关于
+--- BUTTONS (51) ---
+pay_all                  | 一键获得全部商店礼包
+attr_apply               | 应用数值修改
+day_apply                | 设置天数
+day_add7                 | +7 天
+day_add30                | +30 天
+pot_detect               | 检测当前所在位置
+pot_picker               | 修改当前副本进度(选择器)
+pot_apply                | 应用输入的进度
+achv_picker              | 成就选择器(可多选)
+achv_all                 | 一键完成全部成就
+atlas_S                  | 解锁全部剧情图鉴
+atlas_B                  | 解锁全部生物图鉴
+atlas_I                  | 解锁全部物品图鉴
+atlas_ALL                | 一键解锁全部图鉴
+eg_apply                 | 应用金雕数值
+wolf_apply               | 应用狼数值
+rb_unlock_entrance       | 解锁机关甲人(含制作台)
+rb_unlock_all            | 解锁全部 17 个组件
+rb_max_all               | 全部组件等级拉满
+rb_max_wear              | 当前装备的 4 个组件满级
+rb_apply_lv              | 应用等级设置
+build_fix                | 全部建筑耐久修复至上限
+build_picker             | 选择建筑(看当前等级)
+build_lvl_picker         | 选择该建筑的等级并应用
+build_apply              | 应用输入的建筑ID+等级
+build_max_all            | 全部建筑升到满级
+talent_unlock_all        | 一键解锁全部天赋
+talent_max_all           | 全部天赋强化至 ★3
+talent_full_all          | 解锁全部 + 全部★3
+clear_flags2             | 清除作弊标记(重发一次)
+bag_to_wh                | 背包 → 仓库 (全部搬入)
+all_wh                   | 给仓库补发全物品
+clear_bag                | 清空背包
+coin_add                 | 贝壳 +88888
+sp_100000                | 书页(科技) +9999
+sp_100002                | 求生精选 +999
+sp_100003                | 天赋原石 +9999
+sp_100004                | 天赋结晶 +9999
+sp_100005                | 时之砂(广告币) +999
+sp_100006                | 神秘钥匙(机器人币) +88888
+mail_grant               | 执行邮件式发奖
+life_apply               | 应用血量上限/当前血量
+upgrade_all              | 一键解锁全提升
+skin_all                 | 一键解锁全部皮肤
+role_all                 | 一键解锁全部付费角色
+role_1001                | 解锁 朱莉
+role_1002                | 解锁 老贝
+role_1003                | 解锁 小哥
+role_1004                | 解锁 基德
+clear_flags              | 清除作弊标记
+clear_cd                 | 清零 86400000 冷却
+--- SWITCHES (16) ---
+freePay                  | 内购直接成功(人民币礼包/月卡)
+lockAllAttrs             | 一键锁定全部当前值
+limitedDungeon           | 开启全部限时副本
+rb_lock                  | 锁定甲人修改(防服务器刷新覆盖)
+lockBuildDur             | 锁定建筑耐久(不再掉耐久)
+persist                  | 保存功能首选项(重启后保留)
+godMode                  | 无敌(生命x100)
+oneHit                   | 一击必杀
+teleport                 | 瞬移(移动速度x300)
+equip_on                 | 武器/防具强化
+infDur                   | 所有装备无限耐久
+safeLog                  | 拦截作弊上报 clientlog
+safeCheckItem            | 跳过每日物品异常检查
+safeUpdate               | 过滤 updatedata 可疑键
+noHotfix                 | 拦截热更(防脚本被覆盖)
+autoSave                 | 修改后自动存档

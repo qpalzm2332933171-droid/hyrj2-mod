@@ -1,0 +1,284 @@
+==================== _checkIfCheat region (77969,78092)
+ 77940| r.tagProgress = 1;
+ 77941| } else r.tagProgress = parseInt(i.truncSubBrackets(a));
+ 77942| o && o(r);
+ 77943| });
+ 77944| },
+ 77945| _sort: function(e) {
+ 77946| e.forEach(function(e) {
+ 77947| return e.main_sort = "toreceive" == e.stageState ? 1 : 2;
+ 77948| });
+ 77949| e.sort(function(e, t) {
+ 77950| return e.main_sort == t.main_sort ? e.sort - t.sort : e.main_sort - t.main_sort;
+ 77951| });
+ 77952| e.forEach(function(e) {
+ 77953| return delete e.main_sort;
+ 77954| });
+ 77955| return e;
+ 77956| },
+ 77957| _mappingCell: function(t, n) {
+ 77958| var i = this, o = i.mGroups[i.mCurrIndex][n], a = t.getComponent("CellAchieve");
+ 77959| a.init(o, e("DY").utils.delegate(i, i._onClickReceiveBtn));
+ 77960| a.refresh();
+ 77961| },
+ 77962| _onClickReceiveBtn: function(t, n) {
+ 77963| var i = this;
+ 77964| n = n || {};
+ 77965| i.nodMask.active = !0;
+ 77966| var o = i.mGroups[i.mCurrIndex].findIndex(function(e) {
+ 77967| return e.id == t;
+ 77968| }), a = i.mGroups[i.mCurrIndex][o];
+ 77969| i._checkIfCheat(a, function(t) {
+ 77970| if (t.first) {
+ 77971| var r = JSON.stringify(a), s = t.second ? JSON.stringify(t.second) : "undefined";
+ 77972| e("HYHttpMgr").clientlog("modify_achieve", "", null, r, s);
+ 77973| if (!t.second) {
+ 77974| i.nodMask.active = !1;
+ 77975| return;
+ 77976| }
+ 77977| i.mGroups[i.mCurrIndex][o] = t.second;
+ 77978| a = t.second;
+ 77979| i.multiScrolls[i.mCurrIndex].refreshDisplay(o);
+ 77980| }
+ 77981| if (i._checkIfReceive(a) || n.oladAdGet) {
+ 77982| var c = function(e) {
+ 77983| i.nodMask.active = !1;
+ 77984| if (e) {
+ 77985| i._sort(i.mGroups[i.mCurrIndex]);
+ 77986| i.multiScrolls[i.mCurrIndex].refreshDisplay();
+ 77987| }
+ 77988| }, l = e("WidgetAd");
+ 77989| if (l.canShow(e("Const").AD_TYPE.ACHIEVEMENT_REWARD)) if (n.oladAdGet) {
+ 77990| var d = new l();
+ 77991| d.init(e("Const").AD_TYPE.ACHIEVEMENT_REWARD);
+ 77992| d.show(function() {
+ 77993| i._doReceiveOldAd(a, c);
+ 77994| }, function() {
+ 77995| c(!1);
+ 77996| });
+ 77997| } else {
+ 77998| var u = function() {
+ 77999| c(!1);
+ 78000| }, m = function(t) {
+ 78001| e("HYData").set("base.achieveAd." + a.id + "." + a.stageIndex, 1);
+ 78002| i._doReceive(a, c, t);
+ 78003| };
+ 78004| e("DYLoader").loadUIPanel("Achievement/PanelAchieveADReward", function(t, n) {
+ 78005| if (!t) if (cc.isValid(i)) {
+ 78006| i.node.addChild(n, e("DY").layer.TIP);
+ 78007| n.getComponent(n.name).init(m, a.coinList[a.stageIndex], u);
+ 78008| } else n.destroy();
+ 78009| });
+ 78010| } else {
+ 78011| if (n.oladAdGet) {
+ 78012| c(!1);
+ 78013| return;
+ 78014| }
+ 78015| i._doReceive(a, c);
+ 78016| }
+ 78017| } else i.nodMask.active = !1;
+ 78018| });
+ 78019| },
+ 78020| _LayMiniGameUI: function() {
+ 78021| e("HYCommon").isMiniGame();
+ 78022| },
+ 78023| _doReceiveOldAd: function(t, n) {
+ 78024| var i = e("HYData").get("base.achieveAd." + t.id) || {}, o = t.stageIndex, a = !1, r = 0;
+ 78025| for (r = 0; r <= o; r++) if (!i[r]) {
+ 78026| a = !0;
+ 78027| break;
+ 78028| }
+ 78029| a ? e("HYCommon").updateDiamondNum(t.coinList[r], !0, {
+ 78030| type: "achievement",
+ 78031| reasonId: t.id
+ 78032| }, function(i, o) {
+ 78033| if (o && o.err) n && n(!1); else {
+ 78034| e("HYData").set("base.achieveAd." + t.id + "." + r, 1);
+ 78035| e("HYData").trySave();
+ 78036| n && n(!0);
+ 78037| }
+ 78038| }) : n && n(!1);
+ 78039| },
+ 78040| _doReceive: function(t, n) {
+ 78041| var o = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : 1, a = e("SysRedDotTips").getFixedPoint("ACHIEVE", t.type - 1);
+ 78042| e("DYNotify").post(e("HYKey").kDelRedDotTips, {
+ 78043| fixed: a,
+ 78044| id: t.id
+ 78045| });
+ 78046| e("HYCommon").updateDiamondNum(t.coinList[t.stageIndex] * o, !0, {
+ 78047| type: "achievement",
+ 78048| reasonId: t.id
+ 78049| }, function(o, r) {
+ 78050| if (r && r.err) n && n(!1); else {
+ 78051| var s = function(t) {
+ 78052| var o = {
+ 78053| achieveState: t.state,
+ 78054| stageIndex: t.stageIndex,
+ 78055| stageState: t.stageState,
+ 78056| progress: t.curProgress
+ 78057| }, a = i.encrypt(o);
+ 78058| e("HYData").set("base.achievement.detail." + t.id, a);
+ 78059| e("HYData").trySave();
+ 78060| n && n(!0);
+ 78061| };
+ 78062| if (t.stageIndex == t.condList.length - 1) {
+ 78063| t.state = "finish";
+ 78064| t.stageState = "finish";
+ 78065| t.curProgress = t.tagProgress;
+ 78066| s(t);
+ 78067| } else {
+ 78068| t.stageState = "todo";
+ 78069| ++t.stageIndex;
+ 78070| e("HYProfile").getById("cond", t.condList[t.stageIndex], function(n) {
+ 78071| t.tagProgress = parseInt(i.truncSubBrackets(n));
+ 78072| if (t.curProgress >= t.tagProgress) {
+ 78073| t.stageState = "toreceive";
+ 78074| e("DYNotify").post(e("HYKey").kAddRedDotTips, {
+ 78075| fixed: a,
+ 78076| id: t.id
+ 78077| });
+ 78078| }
+ 78079| s(t);
+ 78080| });
+ 78081| }
+ 78082| }
+ 78083| });
+ 78084| t.exReward && e("ModelShop").ShopGetter.addGoodsToPlayer(null, 1, {
+ 78085| successGet: [ t.exReward ]
+ 78086| }, "achievement");
+ 78087| },
+ 78088| _refreshTotalDots: function() {
+ 78089| var t = this, n = i.getTotalScore();
+ 78090| t.labDots.string = e("DY").i18n.t("S_170") + n;
+ 78091| },
+ 78092| _checkIfCheat: function(t, n) {
+ 78093| var o = this, a = {
+ 78094| first: 0,
+ 78095| second: t
+ 78096| };
+ 78097| e("HYProfile").getById("achievement", t.id, function(r) {
+ 78098| if (r) {
+ 78099| var s = e("HYData").get("base.achievement.detail." + t.id) || "0000", c = i.decode(s);
+ 78100| o._constructAchieve(r, c, function(e) {
+ 78101| if (JSON.stringify(e) != JSON.stringify(t)) {
+ 78102| a.first = 1;
+ 78103| a.second = e;
+ 78104| }
+ 78105| n && n(a);
+ 78106| });
+ 78107| } else {
+ 78108| a.first = 1;
+ 78109| a.second = null;
+ 78110| n && n(a);
+ 78111| }
+ 78112| });
+ 78113| },
+ 78114| _checkIfReceive: function(e) {
+ 78115| return "toreceive" == e.stageState;
+ 78116| }
+ 78117| });
+ 78118| cc._RF.pop();
+ 78119| }, {
+ 78120| Const: "Const",
+ 78121| DY: "DY",
+ 78122| DYAudio: "DYAudio",
+ 78123| DYLoader: "DYLoader",
+ 78124| DYNotify: "DYNotify",
+ 78125| HYAchievement: "HYAchievement",
+ 78126| HYCommon: "HYCommon",
+ 78127| HYData: "HYData",
+ 78128| HYHttpMgr: "HYHttpMgr",
+ 78129| HYKey: "HYKey",
+ 78130| HYProfile: "HYProfile",
+==================== account_cheat caller (122213)
+122170| });
+122171| },
+122172| _showEndless: function(t) {
+122173| var n = this;
+122174| n.mIsCanEnterGameMode = !1;
+122175| e("StoryMgr").setEnabled(!1);
+122176| n.playLoadAni("Endless");
+122177| e("DYAnalyze").activate();
+122178| },
+122179| tryGotoDungeon: function() {
+122180| var t = this;
+122181| if (!t.mIsTryGotoDungeon) {
+122182| t.mIsCanEnterGameMode = !1;
+122183| e("StoryMgr").setEnabled(!0);
+122184| e("HYData").setCurMode(e("Const").EnumGameMode.STORY);
+122185| e("DYAnalyze").activate();
+122186| var n = function() {
+122187| var n = e("HYData").get("base.dungeon"), i = e("HYData").get("core.dungeon");
+122188| n || i ? t.playLoadAni("Dungeon") : e("HYProfile").getById("dungeon", 601, function(t) {
+122189| e("HYCommon").initStageData(t, [ e("DY").config.CHARACTER.DEFAULT ], function() {
+122190| e("HYProfile").getAll("equip");
+122191| e("DungeonMgr").enterDungeon();
+122192| });
+122193| });
+122194| };
+122195| if (e("HYData").get("core")) n(); else {
+122196| t.mIsTryGotoDungeon = !0;
+122197| e("HYHttpMgr").storyData(function(i, o) {
+122198| t.mIsTryGotoDungeon = !1;
+122199| if (i) t.mIsCanEnterGameMode = !0; else {
+122200| var a = o.data.core0;
+122201| a = a.indexOf("{") >= 0 ? JSON.parse(a) : null;
+122202| e("HYData").set("core", a);
+122203| n();
+122204| }
+122205| });
+122206| }
+122207| }
+122208| },
+122209| _checkMainJs: function() {
+122210| if (cc.sys.isNative && jsb.fileUtils.isFileExist("main.js")) {
+122211| var t = jsb.fileUtils.getStringFromFile("main.js"), n = e("DYCrypto").md5.hex_md5(t);
+122212| if ("7d6dfe230ee6e39291c6738689b562fe" != n) {
+122213| e("HYHttpMgr").clientlog("account_cheat", "", null, n, "");
+122214| return !1;
+122215| }
+122216| }
+122217| return !0;
+122218| },
+122219| _showSign: function() {
+122220| e("CtrlSign").tryShowSign();
+122221| },
+122222| _showGift: function() {
+122223| e("HYGift").checkShopGift();
+122224| },
+122225| _setMainShow: function() {
+122226| var t = e("HYData").get("base.mainFuncUnlock") || {};
+122227| for (var n in t) t[n] || e("HYData").set("base.mainFuncUnlock." + n, 1);
+122228| },
+122229| showTechnology: function() {
+122230| var t = this;
+122231| i.loadUIPanel("Main/PanelTechnology", function(n, i) {
+122232| if (!n) {
+122233| var o = t._getHangNode();
+122234| if (!cc.isValid(o)) {
+122235| i.destroy();
+122236| return;
+122237| }
+122238| o.addChild(i, e("DY").layer.UI);
+122239| }
+122240| });
+122241| },
+122242| showMission: function() {
+122243| var t = this;
+122244| i.loadUIPanel("Mission/PanelMission", function(n, i) {
+122245| if (!n) {
+122246| var o = t._getHangNode();
+122247| if (!cc.isValid(o)) {
+122248| i.destroy();
+122249| return;
+122250| }
+122251| o.addChild(i, e("DY").layer.UI);
+122252| i.getComponent(i.name).init();
+122253| }
+122254| });
+122255| },
+122256| showRole: function() {
+122257| e("PanelCharacter").show(1001);
+122258| },
+122259| _showAchieve: function() {
+122260| var t = this;
