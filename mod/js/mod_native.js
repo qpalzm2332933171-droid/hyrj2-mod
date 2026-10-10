@@ -415,11 +415,14 @@
     var p = ok(function () { return R("HYItem").getItemProfile(id); });
     return itemName(p) || ("ID " + id);
   }
-  function pickerItems() {
-    var arr = [], cur = profiles("item");
-    if (!cur) return arr;
-    for (var k in cur) { var p = cur[k]; arr.push([String(k), nameOf("item", p, k), p.icon || ""]); }
-    return arr;
+  /* 与其它 picker 保持一致: 统一走 allProfiles 回调 (item 表虽在 mProfiles 中,
+     但首次进入标题页时可能尚未装载, 同步取会拿到空表导致选择器不弹) */
+  function pickerItems(cb) {
+    allProfiles("item", function (cur) {
+      var arr = [];
+      for (var k in (cur || {})) { var p = cur[k]; arr.push([String(k), nameOf("item", p, k), p.icon || ""]); }
+      cb && cb(arr);
+    });
   }
   M.itemNameById = itemNameById; M.pickerItems = pickerItems;
 

@@ -204,6 +204,37 @@ ModProvider init ok / 悬浮球 "M" (贴屏幕左边缘, 不穿透面板) / 菜�
 2. `mod/tools/extract_icons.py` 从 APK 图集抽 `assets/hymod/icons/<id>.png`
 3. v1.0.3 重打包 dist/荒野日记_MOD.apk + 回归 (重装: pm uninstall + tar 备份还原, 或 install -r)
 
+---
+
+## 十、阶段 5: 菜单 UI 修复 + 物品图标 + 重打包 (✅ 2026-10-11 晚)
+
+### 发现的 3 个 UI 链路 bug (全部修复并实测)
+1. **物品选择器点了没反应**: `pickerItems()` 被写成"同步 return",
+   而调用处 `pickerItems(function(arr){...})` 按回调式用 → 回调永不执行。
+   修复: 与其它 picker 统一改走 `allProfiles("item", cb)`。
+2. **选择器弹出但 "共0"**: JS 下发 `items` 是**数组** `[id,name,cat]`,
+   Java `openItemPicker` 却只按 `optJSONObject` 解析 → 全部被 continue 丢弃。
+   修复: Java 兼容两种格式 (先试 `optJSONArray`, 再 `optJSONObject`)。
+   → 修完后 6 个 picker (物品/皮肤/建筑/成就/商店) 全部可用。
+3. **图标缺失**: `assets/hymod/icons/` 为空, 列表只有占位方块。
+
+### 图标提取 (mod/tools/extract_icons.py)
+- 思路: 本地解析图集元数据太难 (settings.jsc 是 22 字符压缩 uuid, import/*.json 是完整 uuid),
+  改为**运行时 dump**: `work/analysis/dump_icons.js` 用 `cc.loader.loadRes("Texture/Item/<id>")`
+  取 `SpriteFrame.getRect()` 并打印 `[HYMOD] ICO|<id>|<atlas>|<x>,<y>,<w>,<h>`,
+  adb logcat 抓出 (299 行) → PIL 按矩形从 `res/raw-assets/**/Texture/Item/AutoAtlas-N.png` 裁剪。
+- 结果: 302 项尝试 / 299 成功 (缺 2137/2138/4106), 图集1=287 + 图集2=12, 共 1.47MB。
+- 数据文件: `work/analysis/icons_raw.txt` (脚本默认输入), 产物 `mail-tool/icons/*.png`
+  (build_apk.py 会自动拷进 `assets/hymod/icons/`)。
+
+### 重打包 + 实机回归 (全部通过)
+- `python build_dex.py` → classes.dex 40072 B; `python build_apk.py` →
+  `dist/荒野日记_MOD.apk` 106,314,284 B (含 299 图标 + v1.0.3 jsc + classes2.dex)
+- `adb install -r` 覆盖安装 (同签名, 数据保留) → 开机: ModProvider init ok /
+  "Js overwrite 1 file(s)" / 全部 hook + PanelShop 加固 / 13 tabs
+- UI 实测: 悬浮球 → 菜单 → 选择物品 → **385 项带图标** → 勾选生肉 → 确认发放 →
+  菜单头显示 "已发放 1 种物品 x99" ✅
+
 ### ⚠️ 实测发现 (2026-10-11 下午)
 
 **移速 hook 双重叠加 bug (已修)**

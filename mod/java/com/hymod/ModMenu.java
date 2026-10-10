@@ -512,6 +512,12 @@ public class ModMenu {
             pickChecked.clear();
             JSONArray arr = o.optJSONArray("items");
             for (int i = 0; arr != null && i < arr.length(); i++) {
+                /* JS 侧 picker 统一用数组 [id, name, cat] 下发, 这里兼容数组/对象两种格式 */
+                JSONArray a = arr.optJSONArray(i);
+                if (a != null) {
+                    pickItems.add(new String[]{ a.optString(0), a.optString(1), a.optString(2, "") });
+                    continue;
+                }
                 JSONObject it = arr.optJSONObject(i);
                 if (it == null) continue;
                 pickItems.add(new String[]{ it.optString("id"), it.optString("name"), it.optString("cat", "") });
