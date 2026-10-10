@@ -243,6 +243,24 @@
           }
         }, "scenemainWalk");
       }
+      /* PanelShop.onDestroy 加固: 游戏自身在此处有空指针 (mGoodsMgr 未初始化时)
+         崩溃会中断节点销毁 -> 面板卡死 + 每帧刷错误日志 (对封号风控非常显眼) */
+      if (!noBan.shopdestroy) {
+        try {
+          var PSC = cc.js && cc.js.getClassByName && cc.js.getClassByName("PanelShop");
+          if (PSC && PSC.prototype && PSC.prototype.onDestroy && !PSC.prototype.__hymodSafeOD) {
+            PSC.prototype.__hymodSafeOD = 1;
+            PSC.prototype.onDestroy = function () {
+              try { var n = this.mGoodsMgr && this.mGoodsMgr.getOneGoods(1); n && n.delPropListen("isShowRed", this, this.onRedPointChg); } catch (e) {}
+              try { var ev = R("ShopEvent"); ev && ev.clear && ev.clear(); } catch (e) {}
+              try { this.mGoodsMgr && this.mGoodsMgr.clear && this.mGoodsMgr.clear(); } catch (e) {}
+              try { if ("InGame" == this.mEnterType) { var TM = R("HYTime"); TM && TM.lockResume && TM.lockResume("Shop"); } } catch (e) {}
+            };
+            noBan.shopdestroy = 1;
+            log("PanelShop.onDestroy 已加固 (绕过游戏空指针 bug)");
+          }
+        } catch (e) { log("shopDestroy " + e); }
+      }
       installCombatHooks();
       installMoveHooks();
       installStateHooks();

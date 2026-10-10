@@ -172,7 +172,8 @@ adb logcat -d | Select-String HYMOD
 | 图鉴 setAtlas | 5 组 256 项 ✅ |
 | 成就 _handleSingle | 45 条 / 105 分 ✅ |
 | 角色解锁 RoleDataServer.addToDisplay | 30+ 个 ✅ |
-| 宠物 petAll / 商店 shopBuy | 待补测 (T6 输出被截断) |
+| 宠物 petAll | 18→34 ✅ (T7) |
+| 商店 shopBuy | 55 项可选, 购买免费 (第4参 true 走 f({err:0}) 免费分支) ✅ (T7) |
 
 ### 安全层 (开机日志确认全部挂钩)
 clientlog / logError / setCheat / sealTip / alert+alertError(4015) / DDREPORT / checkUpdateInfo /
@@ -193,7 +194,20 @@ ModProvider init ok / 悬浮球 "M" (贴屏幕左边缘, 不穿透面板) / 菜�
 `pm uninstall` + tar 备份还原数据不丢
 
 ### 未完成 (下一步)
-1. 补测宠物 `PM.getNumPet()` / 商店 shopBuy; T7: 建筑 buildMaxAll、皮肤 applySkin、成就选择器、
-   锁四维 lockAttrs、无敌/一击必杀(需战斗场景)、移速
+1. T7 剩余: 建筑 buildMaxAll、皮肤 applySkin、成就选择器、锁四维 lockAttrs、
+   无敌/一击必杀(需战斗场景)、移速
 2. `mod/tools/extract_icons.py` 从 APK 图集抽 `assets/hymod/icons/<id>.png`
 3. v1.0.3 重打包 dist/荒野日记_MOD.apk + 回归 (重装: pm uninstall + tar 备份还原, 或 install -r)
+
+### ⚠️ 实测发现 (2026-10-11 下午)
+**PanelShop.onDestroy 游戏空指针 bug (已由 MOD 加固修复)**
+- 现象: 打开过商店面板后, 面板销毁时 `PanelShop.onDestroy` 里
+  `this.mGoodsMgr.getOneGoods(1)` (project.hot.dec.js:110516) 在 mGoodsMgr 未初始化时抛
+  `Cannot read property 'getOneGoods' of undefined`; **异常中断节点销毁** →
+  面板永远卡在 `HYDialogMgr.mDialogDict` 里、每帧重试销毁 → 无限刷错误日志 + 面板遮死不消失。
+- 触发条件: 本次是 js_call 测试 shopBuy 后出现 (购买会 sendEvent("BuyGoods") 触发商店面板逻辑);
+  对封号风控而言, 每帧错误日志极其显眼。
+- 修复: MOD 安全层 `installNoBanHooks` 新增 `PanelShop.onDestroy 加固`,
+  用 try/catch 包住 4 段逻辑 → 销毁恢复正常, mDialogDict 恢复只剩 SceneMain, 错误循环停止。
+- 附带发现: 本引擎 `node.destroy()` 是**延迟销毁**; 若 onDestroy 抛异常则永不销毁。
+  卡死面板的应急手段: `node.removeFromParent(); node.active=false` (立即生效)。
