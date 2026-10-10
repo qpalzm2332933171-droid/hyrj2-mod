@@ -316,6 +316,8 @@
   M.installCombatHooks = installCombatHooks;
 
   /* ================= 移速 hook ================= */
+  /* 注意: getTeamBaseSpeed(roles, cb) / getTeamSpeed(roles, cb) 是回调式,
+     返回值恒为 undefined, 必须包装最后一个函数参数才能放大实际数值 */
   var move = {};
   function installMoveHooks() {
     var HP = R("HYPlayer");
@@ -327,9 +329,23 @@
         if (!HP[fn]) return;
         var raw = HP[fn];
         HP[fn] = function () {
-          var v = raw.apply(this, arguments);
-          if (buff.moveOn && typeof v === "number" && v > 0) return v * (buff.moveMul / 100);
-          return v;
+          var args = Array.prototype.slice.call(arguments);
+          /* getTeamSpeed 内部会再调用 getTeamBaseSpeed, 两者都挂钩会叠加倍率,
+             用 move.inTeam 标记避免内层重复乘 */
+          var inner = (fn === "getTeamBaseSpeed" && move.inTeam);
+          var mul = (buff.moveOn && buff.moveMul > 0 && !inner) ? (buff.moveMul / 100) : 0;
+          var last = args.length ? args[args.length - 1] : null;
+          if (mul && typeof last === "function") {
+            args[args.length - 1] = function (v) {
+              if (typeof v === "number" && v > 0) v = v * mul;
+              return last.call(this, v);
+            };
+          }
+          if (fn === "getTeamSpeed") move.inTeam = 1;
+          var r;
+          try { r = raw.apply(this, args); } finally { if (fn === "getTeamSpeed") move.inTeam = 0; }
+          if (mul && typeof r === "number" && r > 0) r = r * mul;
+          return r;
         };
         log("已挂钩 HYPlayer." + fn);
       })(fns[i]);

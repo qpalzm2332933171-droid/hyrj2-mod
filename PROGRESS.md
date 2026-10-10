@@ -174,6 +174,11 @@ adb logcat -d | Select-String HYMOD
 | 角色解锁 RoleDataServer.addToDisplay | 30+ 个 ✅ |
 | 宠物 petAll | 18→34 ✅ (T7) |
 | 商店 shopBuy | 55 项可选, 购买免费 (第4参 true 走 f({err:0}) 免费分支) ✅ (T7) |
+| 建筑 buildMaxAll/buildRepairAll | 8 组建筑解锁+满级 (例 20100:10/20200:5) ✅ (T8) |
+| 皮肤 applySkin | 8 款可选, 直写 base.skin ✅ (T8) |
+| 成就选择器 achievePickerItems | 63 条 ✅ (T8) |
+| 锁四维 lockAttrs | hunger 100→100(锁) / →95(解锁) / →100(恢复) ✅ (T9) |
+| 移速 getTeamSpeed | 6.7056→20.1168 = 精确 3.0 倍 ✅ (T9b, 修复后) |
 
 ### 安全层 (开机日志确认全部挂钩)
 clientlog / logError / setCheat / sealTip / alert+alertError(4015) / DDREPORT / checkUpdateInfo /
@@ -200,6 +205,21 @@ ModProvider init ok / 悬浮球 "M" (贴屏幕左边缘, 不穿透面板) / 菜�
 3. v1.0.3 重打包 dist/荒野日记_MOD.apk + 回归 (重装: pm uninstall + tar 备份还原, 或 install -r)
 
 ### ⚠️ 实测发现 (2026-10-11 下午)
+
+**移速 hook 双重叠加 bug (已修)**
+- `getTeamBaseSpeed(roles,cb)` / `getTeamSpeed(roles,cb)` 都是**回调式**(返回 undefined),
+  原实现按返回值乘倍率 → 完全无效。
+- 修法: 包装最后一个函数参数; 且 getTeamSpeed 内部会再调 getTeamBaseSpeed,
+  两者都挂钩会叠加 (300% 变 900%) → 用 `move.inTeam` 标记防重入。
+- 实测: teamOff=6.7056 → teamX3=20.1168, ratio = 3.000 精确。
+- 调用方确认: 实际移动 (115698/115820 的 mDestPos/getPotPath) 走 getTeamSpeed ✅
+
+**锁四维验证要点**
+- `HYPlayer.getState(attr, roleIndex)` / `updateState(attr, delta, roleIndex)`,
+  roleIndex 为 1 起的数字 (1..getRoleNum()), 传 0/null 会遍历全部角色。
+- 运行时 `mCurRole = null` (不是当前角色), 别拿它当索引。
+- 状态数据路径: `core.role.<idx>.<attr>` (hunger/health/mentality/hp/mood/waterPlague)。
+
 **PanelShop.onDestroy 游戏空指针 bug (已由 MOD 加固修复)**
 - 现象: 打开过商店面板后, 面板销毁时 `PanelShop.onDestroy` 里
   `this.mGoodsMgr.getOneGoods(1)` (project.hot.dec.js:110516) 在 mGoodsMgr 未初始化时抛
