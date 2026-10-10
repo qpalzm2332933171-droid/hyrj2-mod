@@ -93,9 +93,9 @@
 1. [x] 构建工具链适配 (config/build_mod/build_dex/build_apk/patch_manifest/dev_push/js_call) — 全部跑通
 2. [x] mod_native.js v0.1: 安全层 + 菜单框架 + 基础功能 (物品/货币), 模拟器实测启动
 3. [x] v0.2/v0.3 功能扩展: 物品/角色/状态/战斗/科技/建筑/成就/图鉴/宠物/商店/安全 (13 tabs, v1.0.3)
-4. [~] Java UI 适配 ✅ / 物品图标提取脚本 ⏳
-5. [~] dist/荒野日记_MOD.apk 已产出并实测直装 ✅ / v1.0.3 重打包回归 ⏳
-6. [ ] 文档 (README/docs) + 发版
+4. [x] Java UI 适配 + 物品图标提取 (299 图标, v1.0.3)
+5. [x] dist/荒野日记_MOD.apk 直装实测 ✅ / v1.0.4 重打包 + 回归 ✅ (见阶段七)
+6. [x] 文档 (README 功能清单/截图) + GitHub Release v1.0.4
 
 ## 六、重要文件路径
 
@@ -297,3 +297,44 @@ else               for(...) d.Monster.createNew(n[S], l)          // PVE 敌人�
 - 真实战斗内验证仍待做 (需在局内触发一场遭遇战), 逻辑层已全部验证。
 - 游戏自带 `HYCommon.setCheat` (44102) 会把 account_cheat/modify_achieve 等
   写进 `base.cheat` 存档并 trySave 上传 → 已在安全层置空 + 开机清零。
+
+---
+
+## 十二、阶段 7: 真实战斗实测修正 → v1.0.4 (✅ 2026-10-11 深夜)
+
+阶段 6 的战斗 hook 只有 mock 验证 (T12)。本阶段在**真实战斗**中跑通全流程,
+发现并修复 3 处 "mock 测不出、实战才漏" 的问题, 实机回归全部通过, 发版 v1.0.4。
+
+### 真实战斗触发方式 (可复现, 非 MOD 功能, 仅测试手段)
+局内 (剧情第 9 章 沙特尔城) 用 `js_call.py` 执行 `work/analysis/fight3.js`:
+`DL.loadPrefab("Fight/PanelFightLogV2")` → 挂 UI_TIP 层 →
+`comp.init(exploringRoles, stage.monster, {atk,hp}, FT_NORMAL, cb, stage, fn, fn)`
+= 完全走游戏自带战斗管线, 带完整的战斗动画/日志/结算。
+
+### 实测暴露的漏点 + 修复 (mod/js/mod_native.js)
+| # | 症状 | 根因 (行号=project.hot.dec.js) | 修复 |
+|---|---|---|---|
+| 1 | 减伤完全没生效 | `getHurtReduce` (57793) 返回 `[平摊, %, %, %]` **数组**, 旧代码按 number 判断 | 数组首项 `+= 1e9` |
+| 2 | 战斗内掉血 (1点伤害穿透) | 引擎扣血 `l -= e` 在 `takeDamage` (58071) 直接改闭包变量, 不走 addHP/setHP | 包装 `takeDamage` (godMode + 我方 → return) |
+| 3 | 结算仍扣 1~2 血/场 | `PanelFightLogV2.fightItem` (90463) 把战斗中 `t.point` 写回持久存档: `HYPlayer.updateRoleAttr("hp", -point)` → `updateState` | godMode 时在 `HYPlayer.updateState` 拦 `attr=="hp" && delta<0` |
+| 4 | 宠物结算掉血 | 同上, 宠物走 `PetMgr.getCarriedPet().setHpRelative(-point)` (90460/90470) | 首次取得携带宠物时包装 `setHpRelative` |
+
+### 实机验证 (v1.0.4)
+- **T13 mock 回归**: `atk 10→550`, `hurtRed=[1e9,0,0,0]`, `takeDamage(9999)/addHP(-9999)/setHP(0)` 后 HP 不动;
+  敌方 `side=1` 完全不受影响 ✅
+- **真实战斗 (熊 6100003, ×3 难度)**: 修复前漏 1 点; 修复后
+  `hp1/2/3 = 1822/1896/257 → 打完一场 → 1822/1896/257` **完全不变** ✅
+  - 战斗日志实拍: 我方 "击中了要害! 对[棕熊]造成了 **11998** 点伤害" (一击必杀), 己方血条全程满 ✅
+- **打包回归**: `build_dex` → `build_apk` → `dist/荒野日记_MOD.apk`
+  (106,314,284 B, v1.0.4 jsc 1020840 B md5=059008e8) → `install -r` → 开机日志:
+  `MOD v1.0.4 已加载` + 全部 hook (含 updateState/PetMgr 新增两条) + `setMenu tabs=13` ✅
+
+### 测试台已知特性 (非 MOD 问题, 勿混淆)
+- `fight3.js` 直接起战斗面板时没有世界地图 pot 上下文,
+  `_onEndBattle` 的 `HYWorld.getMoveData().curPot` (90565) 会抛错 → 面板不自动关、
+  res 回调不触发; 用 `work/analysis/cleanup_fight.js` 手动 `DialogBase.closeDialog()` 即可。
+  真实世界地图遭遇战无此问题。
+
+### 版本
+- `mod_native.js` ver **1.0.4**; GitHub Release **v1.0.4** (tag + 直装 APK 资产);
+  README 更新功能清单 + `docs/images/` 三张实拍截图。

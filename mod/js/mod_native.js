@@ -7,8 +7,8 @@
  *  原则: 优先 hook 返回值(纯本地不上传) > 走游戏原生接口; 绝不手写存档键
  * ========================================================================= */
 (function () {
-  if (window.HYMOD && window.HYMOD.ver === "1.0.3") return;
-  var M = window.HYMOD = { ver: "1.0.3", ready: false };
+  if (window.HYMOD && window.HYMOD.ver === "1.0.4") return;
+  var M = window.HYMOD = { ver: "1.0.4", ready: false };
 
   /* ================= 模块访问 (require 是 project.js 顶部定义的全局) ================= */
   var modCache = {};
@@ -302,8 +302,21 @@
       var rawHurt = w.getHurtReduce;
       if (rawHurt) w.getHurtReduce = function (e) {
         var v = rawHurt.call(this, e);
-        if (buff.godMode && mine(this) && typeof v === "number") return Math.max(v, 0.75);
+        /* 返回的是 [平摊减伤, 百分比1, 百分比2, 百分比3] 数组 (57793 getProp("decHurt"))。
+           旧实现按 number 判断 → 从未生效, 真实战斗实测纠正。 */
+        if (buff.godMode && mine(this) && v && v.length >= 1) {
+          var r = v.slice();
+          r[0] = (r[0] || 0) + 1e9;
+          return r;
+        }
         return v;
+      };
+      /* 关键: 引擎扣血在 takeDamage 里直接 `l -= e` (58071), 不经 addHP/setHP,
+         必须单独拦截, 否则无敌无效 (真实战斗实测发现, 敌方 1 点伤害穿透过)。 */
+      var rawTake = w.takeDamage;
+      if (rawTake) w.takeDamage = function (dmg, it, arr, res, src) {
+        if (buff.godMode && mine(this)) return;
+        return rawTake.call(this, dmg, it, arr, res, src);
       };
       return w;
     }
@@ -376,13 +389,18 @@
       var raw = HP.updateState;
       HP.updateState = function (attr, delta, role) {
         try {
+          /* 战斗结算会把战斗中受到的伤害写回持久存档:
+             PanelFightLogV2.fightItem (90463) -> HYPlayer.updateRoleAttr("hp", -point)
+             -> updateState("hp", -point)。无敌时必须在这里再拦一道, 否则
+             即使战斗内 takeDamage 被拦, 结算仍会扣血 (真实战斗实测: 每场漏 1~2 点)。 */
+          if (buff.godMode && attr === "hp" && delta < 0) return;
           if (buff.lockAttrs && delta < 0 && STATE_ATTRS[attr] && attr !== "hp") {
             return;
           }
         } catch (e) {}
         return raw.apply(this, arguments);
       };
-      log("已挂钩 HYPlayer.updateState (锁四维)");
+      log("已挂钩 HYPlayer.updateState (锁四维 + 无敌结算拦截)");
     }
     if (HP.isWeak) {
       var rawW = HP.isWeak;
@@ -392,6 +410,30 @@
       };
       log("已挂钩 HYPlayer.isWeak");
     }
+    /* 宠物受伤结算同样走 writeback (fightItem 90460/90470 -> setHpRelative(-point)),
+       无敌时一并拦截; getCarriedPet 返回单例, 首次取到时就地包一层。 */
+    try {
+      var PM = R("PetMgr");
+      if (PM && PM.getCarriedPet && !PM.__hymodPetHook) {
+        PM.__hymodPetHook = 1;
+        var rawGetPet = PM.getCarriedPet;
+        PM.getCarriedPet = function () {
+          var p = rawGetPet.apply(this, arguments);
+          try {
+            if (p && p.setHpRelative && !p.__hymodPetBuff) {
+              p.__hymodPetBuff = 1;
+              var rawRel = p.setHpRelative;
+              p.setHpRelative = function (d) {
+                if (buff.godMode && d < 0) return;
+                return rawRel.apply(this, arguments);
+              };
+            }
+          } catch (e) {}
+          return p;
+        };
+        log("已挂钩 PetMgr.getCarriedPet (无敌宠物结算拦截)");
+      }
+    } catch (e) { log("petHook " + e); }
   }
   M.installStateHooks = installStateHooks;
 
