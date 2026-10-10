@@ -262,3 +262,38 @@ ModProvider init ok / 悬浮球 "M" (贴屏幕左边缘, 不穿透面板) / 菜�
   用 try/catch 包住 4 段逻辑 → 销毁恢复正常, mDialogDict 恢复只剩 SceneMain, 错误循环停止。
 - 附带发现: 本引擎 `node.destroy()` 是**延迟销毁**; 若 onDestroy 抛异常则永不销毁。
   卡死面板的应急手段: `node.removeFromParent(); node.active=false` (立即生效)。
+
+---
+
+## 十一、阶段 6: 战斗 hook 重做 (阵营安全) + 验证 (✅ 2026-10-11 晚)
+
+### 重做原因 (重要)
+原实现直接改 `createNew` 收到的配置对象 t (`t.hpMax/t.atk/t.decHurt`)。
+但 `HYFight.createNew` (project.hot.dec.js:49949-49957):
+```js
+if (l == o.FT_PVP) for(...) (n[Y].kind ? d.Pet.createNew : d.PlayerWarrior.createNew)(n[Y], l).setSide(1);
+else               for(...) d.Monster.createNew(n[S], l)          // PVE 敌人是 Monster, 不受影响
+```
+→ **PVP(夜袭)时敌方也用 PlayerWarrior/Pet 工厂**, 原写法会把敌人一起加强。
+
+### 新实现 (getter 层 + 每次判 getSide())
+- 不再动配置对象; 创建后 `installWarriorBuff(w)` 包装实例:
+  `addHP/setHP` (godMode 拦截负值=无敌)、`getAtk`(oneHit ×50+50)、
+  `getCritRate`(oneHit → ≥100)、`getHurtReduce`(godMode → ≥0.75)。
+- 伤害公式 `getDamage = this.getAtk(target) - target.getDef(this)` (58054) 走 getAtk ✅
+- 战斗实例外无法构造 warrior: `createNew` 内部会调 `HYFight.getInstance().getAllies()`,
+  无战斗时抛 null (T11 验证), 所以用 mock 对象做单元验证 (T12):
+
+| 场景 | 结果 |
+|---|---|
+| 我方 side=0 + buff开 | atk 10→550, crit 5→100, hurtRed 0.1→0.75 ✅ |
+| 我方 addHP(-9999) / setHP(0) | HP 不变 (无敌) ✅ |
+| **敌方 setSide(1) + buff开** | atk=10 crit=5 hurtRed=0.1, addHP(-30) 正常掉血 ✅ **不受影响** |
+| buff关 | 恢复原值 ✅ |
+
+### 其他确认
+- 关闭 PVP 泄漏后, 夜袭等 PVP 玩法可放心开 buff。
+- `Const.EnumFightType = FT_NORMAL/FT_SUDDEN/FT_ESCAPE/FT_PLANT/FT_PVP`
+- 真实战斗内验证仍待做 (需在局内触发一场遭遇战), 逻辑层已全部验证。
+- 游戏自带 `HYCommon.setCheat` (44102) 会把 account_cheat/modify_achieve 等
+  写进 `base.cheat` 存档并 trySave 上传 → 已在安全层置空 + 开机清零。

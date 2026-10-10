@@ -275,40 +275,52 @@
     if (!HW || combat.done) return;
     combat.done = 1;
 
+    /* 只在 getter 层动手, 且每次都判 getSide()==0 (我方)。
+       原因: HYFight.createNew 里 PVP 模式的敌方也用 PlayerWarrior/Pet 工厂
+       (49951 行 setSide(1)), 若直接改配置对象 t, 敌方会一起变强。
+       伤害公式 = this.getAtk(target) - target.getDef(this), 所以包 getAtk 即可。*/
+    function installWarriorBuff(w) {
+      if (!w || w.__hymodBuff) return w;
+      w.__hymodBuff = 1;
+      function mine(self) { try { return (self.getSide ? self.getSide() : 0) === 0; } catch (e) { return false; } }
+      var rawAdd = w.addHP;
+      if (rawAdd) w.addHP = function (d) { if (buff.godMode && d < 0 && mine(this)) return; return rawAdd.call(this, d); };
+      var rawSet = w.setHP;
+      if (rawSet) w.setHP = function (v) { if (buff.godMode && v <= 0 && mine(this)) return; return rawSet.call(this, v); };
+      var rawAtk = w.getAtk;
+      if (rawAtk) w.getAtk = function (e) {
+        var v = rawAtk.call(this, e);
+        if (buff.oneHit && mine(this) && typeof v === "number" && v > 0) return v * 50 + 50;
+        return v;
+      };
+      var rawCrit = w.getCritRate;
+      if (rawCrit) w.getCritRate = function (e) {
+        var v = rawCrit.call(this, e);
+        if (buff.oneHit && mine(this) && typeof v === "number") return Math.max(v, 100);
+        return v;
+      };
+      var rawHurt = w.getHurtReduce;
+      if (rawHurt) w.getHurtReduce = function (e) {
+        var v = rawHurt.call(this, e);
+        if (buff.godMode && mine(this) && typeof v === "number") return Math.max(v, 0.75);
+        return v;
+      };
+      return w;
+    }
+    M.installWarriorBuff = installWarriorBuff;
+
     function wrap(kind) {
       var K = HW[kind];
       if (!K || !K.createNew || K.__hymod) return;
       var raw = K.createNew;
       K.createNew = function (t, n) {
         var self = this;
-        try {
-          if (t) {
-            if (buff.godMode) {
-              var hp = t.hpMax || t.hp || 0;
-              if (hp > 0) { t.hpMax = Math.ceil(hp * 50); t.hp = t.hpMax; }
-              if (!(t.decHurt > 0)) t.decHurt = 0.75;
-            }
-            if (buff.oneHit) {
-              t.atk = Math.ceil((t.atk || 1) * 50) + 50;
-              t.crit = Math.max(t.crit || 0, 1);
-              if (!(t.atkSp > 0)) t.atkSp = 1.5;
-            }
-          }
-        } catch (e) { log("combat params " + e); }
         var w = raw.call(self, t, n);
-        try {
-          if (w && buff.godMode && !w.__hymodGod) {
-            w.__hymodGod = 1;
-            var rawAdd = w.addHP;
-            if (rawAdd) w.addHP = function (d) { if (d < 0) return; return rawAdd.call(this, d); };
-            var rawSet = w.setHP;
-            if (rawSet) w.setHP = function (v) { if (v <= 0) return; return rawSet.call(this, v); };
-          }
-        } catch (e) { log("combat wrap " + e); }
+        try { installWarriorBuff(w); } catch (e) { log("combat wrap " + e); }
         return w;
       };
       K.__hymod = 1;
-      log("已挂钩 HYWarrior." + kind + ".createNew");
+      log("已挂钩 HYWarrior." + kind + ".createNew (按阵营生效)");
     }
     wrap("PlayerWarrior");
     wrap("Pet");
