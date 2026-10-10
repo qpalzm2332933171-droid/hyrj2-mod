@@ -335,6 +335,10 @@ else               for(...) d.Monster.createNew(n[S], l)          // PVE 敌人�
   res 回调不触发; 用 `work/analysis/cleanup_fight.js` 手动 `DialogBase.closeDialog()` 即可。
   真实世界地图遭遇战无此问题。
 
+> 以上测试脚本已归档到 `docs/analysis-scripts/tests/`
+> (`fight3.js` 真实战斗 / `cleanup_fight.js` 收面板 / `t13.js` mock 回归 / `p6.js` 血量探针),
+> 配套 `mod/tools/js_call.py` 可直接复现。
+
 ### 版本
 - `mod_native.js` ver **1.0.4**; GitHub Release **v1.0.4** (tag + 直装 APK 资产);
   README 更新功能清单 + `docs/images/` 三张实拍截图。
