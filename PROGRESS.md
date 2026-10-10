@@ -90,11 +90,11 @@
 
 ## 五、待办清单 (按顺序)
 
-1. [ ] 构建工具链适配 (config/build_mod/build_dex/build_apk/patch_manifest/sync_hot_assets)
-2. [ ] mod_native.js v0.1: 安全层 + 菜单框架 + 基础功能 (物品/货币), 模拟器实测启动
-3. [ ] v0.2 功能扩展: 属性/战斗/移速/科技/天赋/皮肤/角色/商店/时间/成就/图鉴/宠物/建筑/甲人/耐久...
-4. [ ] Java UI 适配 + 图标 (可选)
-5. [ ] 全流程打包 dist/荒野日记_MOD.apk + 模拟器回归
+1. [x] 构建工具链适配 (config/build_mod/build_dex/build_apk/patch_manifest/dev_push/js_call) — 全部跑通
+2. [x] mod_native.js v0.1: 安全层 + 菜单框架 + 基础功能 (物品/货币), 模拟器实测启动
+3. [x] v0.2/v0.3 功能扩展: 物品/角色/状态/战斗/科技/建筑/成就/图鉴/宠物/商店/安全 (13 tabs, v1.0.3)
+4. [~] Java UI 适配 ✅ / 物品图标提取脚本 ⏳
+5. [~] dist/荒野日记_MOD.apk 已产出并实测直装 ✅ / v1.0.3 重打包回归 ⏳
 6. [ ] 文档 (README/docs) + 发版
 
 ## 六、重要文件路径
@@ -152,3 +152,48 @@ adb logcat -d | Select-String HYMOD
   → 均为可复现产物, 按 README「三、构建」重新生成即可
 - 新增工具 `mod/tools/decrypt_apk_js.py` (解 APK 内 jsc + `--hot` 从设备拉热更版)
 - 提交: 167 files, 41.3MB
+
+---
+
+## 九、阶段 4: mod_native.js v1.0.3 功能实现 + 实测 (✅ 2026-10-11)
+
+### 架构
+- `R(name)` 模块缓存 (30 个模块全部可访问); `allProfiles(key,cb)` **异步**加载配置表;
+  `profiles()` 同步快路径。表懒加载: 仅 `item`(385)/`technology`(540)/`equip`(54) 在 mProfiles,
+  其余 role=54/skin=8/pet=15/shop=55/atlas=5组/build=59/achv=63 必须走 `HYProfile.getAll(key,cb)`。
+
+### 功能实测 (T5/T6, 局内 Dungeon 场景, 经 `js_call.py` 验证)
+| 功能 | 结果 |
+|---|---|
+| 物品发放 changeItemNum | 11517→11522 ✅ |
+| 货币 updateDiamondNum | 5314→6314 ✅ |
+| 科技 setTechnology | 136 个产品组 ✅ |
+| 状态回满 refillAttrs | health/hunger/mentality 100/100 ✅ |
+| 图鉴 setAtlas | 5 组 256 项 ✅ |
+| 成就 _handleSingle | 45 条 / 105 分 ✅ |
+| 角色解锁 RoleDataServer.addToDisplay | 30+ 个 ✅ |
+| 宠物 petAll / 商店 shopBuy | 待补测 (T6 输出被截断) |
+
+### 安全层 (开机日志确认全部挂钩)
+clientlog / logError / setCheat / sealTip / alert+alertError(4015) / DDREPORT / checkUpdateInfo /
+saveCoinChange / updateData(safeUpdate) / _reportAchieve / SceneMain._checkMainJs / base.cheat 清零
+
+### 战斗/移速 hook
+HYWarrior.PlayerWarrior+Pet.createNew (无敌/一击必杀)、HYPlayer.getTeamBaseSpeed/getTeamSpeed (移速)、
+HYPlayer.updateState (锁四维)、isWeak
+
+### 调试双通道 (无需重打包)
+- `python mod\tools\dev_push.py` — 打包 + push 热更目录 + 重启 + 抓 [HYMOD] 日志 (35 秒/轮)
+- `python mod\tools\js_call.py "代码"` / `--file X.js` — 走 ModProvider `content call --method js64`,
+  su 通道在游戏进程执行任意 JS 并回传 Bundle, **自动化验证唯一手段**
+- ModProvider 智能跳过: 热更目录 jsc 比 APK 新(>1s)则不覆盖, dev_push 版本可存活重启
+
+### 实测直装
+ModProvider init ok / 悬浮球 "M" (贴屏幕左边缘, 不穿透面板) / 菜单 13 tabs /
+`pm uninstall` + tar 备份还原数据不丢
+
+### 未完成 (下一步)
+1. 补测宠物 `PM.getNumPet()` / 商店 shopBuy; T7: 建筑 buildMaxAll、皮肤 applySkin、成就选择器、
+   锁四维 lockAttrs、无敌/一击必杀(需战斗场景)、移速
+2. `mod/tools/extract_icons.py` 从 APK 图集抽 `assets/hymod/icons/<id>.png`
+3. v1.0.3 重打包 dist/荒野日记_MOD.apk + 回归 (重装: pm uninstall + tar 备份还原, 或 install -r)

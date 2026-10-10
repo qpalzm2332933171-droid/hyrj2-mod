@@ -59,6 +59,11 @@ public class ModProvider extends ContentProvider {
                 if (!d.isDirectory()) continue;
                 File target = new File(d, "src/project.jsc");
                 if (!target.exists()) continue;
+                // 若热更目录里的 jsc 比 APK 还新(开发者/用户自己替换过), 就保留不覆盖
+                if (target.lastModified() > apkUpdateTime(ctx) + 1000) {
+                    Log.i(ModBridge.TAG, "keep newer local project.jsc in " + d.getName());
+                    continue;
+                }
                 InputStream in = ctx.getAssets().open("src/project.jsc");
                 FileOutputStream out = new FileOutputStream(target);
                 byte[] buf = new byte[65536];
@@ -69,6 +74,12 @@ public class ModProvider extends ContentProvider {
             }
             Log.i(ModBridge.TAG, "copyModJs overwrite " + n + " file(s)");
         } catch (Throwable t) { Log.e(ModBridge.TAG, "copyModJs " + t); }
+    }
+
+    private static long apkUpdateTime(Context ctx) {
+        try {
+            return ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).lastUpdateTime;
+        } catch (Throwable t) { return 0; }
     }
 
     @Override public Cursor query(Uri u, String[] p, String s, String[] a, String o) { return null; }
