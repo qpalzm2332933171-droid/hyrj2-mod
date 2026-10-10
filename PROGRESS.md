@@ -140,3 +140,15 @@ adb shell su -c "cp /data/local/tmp/hymod_project.jsc <热更dir>/src/project.js
 adb shell am force-stop com.dygame.hyrj.nearme.gamecenter; adb shell am start -n .../DYGame
 adb logcat -d | Select-String HYMOD
 ```
+
+---
+
+## 八、GitHub 仓库 (✅ 2026-10-11)
+
+- 地址: **https://github.com/qpalzm2332933171-droid/hyrj2-mod** (public, main 分支)
+- 收录: `mod/`(MOD JS + Java UI + 工具链)、`docs/analysis-scripts/`(59 个逆向分析脚本与输出)、
+  `game-source/`(解密脚本 + 配置表)、README/NOTICE/LICENSE/PROGRESS
+- 排除(见 .gitignore): `work/`(430MB 解包与构建中间物)、`dist/`(100MB MOD APK)、`*.apk`(原包 104MB)
+  → 均为可复现产物, 按 README「三、构建」重新生成即可
+- 新增工具 `mod/tools/decrypt_apk_js.py` (解 APK 内 jsc + `--hot` 从设备拉热更版)
+- 提交: 167 files, 41.3MB
