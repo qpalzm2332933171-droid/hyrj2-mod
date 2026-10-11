@@ -7,8 +7,8 @@
  *  原则: 优先 hook 返回值(纯本地不上传) > 走游戏原生接口; 绝不手写存档键
  * ========================================================================= */
 (function () {
-  if (window.HYMOD && window.HYMOD.ver === "1.0.4") return;
-  var M = window.HYMOD = { ver: "1.0.4", ready: false };
+  if (window.HYMOD && window.HYMOD.ver === "1.0.5") return;
+  var M = window.HYMOD = { ver: "1.0.5", ready: false };
 
   /* ================= 模块访问 (require 是 project.js 顶部定义的全局) ================= */
   var modCache = {};
@@ -167,8 +167,13 @@
     if (HH.saveCoinChange) {
       var rawCoin = HH.saveCoinChange;
       HH.saveCoinChange = function (a, info) {
-        if (cfg.safeCoin && info && (info.type === "hycmod" || info.reasonId === "hycmod")) {
-          log("saveCoinChange 已拦截 (MOD 发币)"); return;
+        if (cfg.safeCoin && info) {
+          if (info.type === "hycmod" || info.reasonId === "hycmod"
+              || (parseInt(info.curGold, 10) || 0) >= 3e4
+              || (parseInt(info.costGold, 10) || 0) >= 14257) {
+            log("saveCoinChange 已拦截 (大额/MOD 发币) cur=" + info.curGold + " cost=" + info.costGold);
+            return;
+          }
         }
         return rawCoin.apply(this, arguments);
       };
@@ -201,7 +206,22 @@
       };
       log("HYAchievement._reportAchieve 已挂钩");
     }
-    /* 11) base.cheat 清零 */
+    /* 11) getDiamondNum — 解除 >=3e4 强制归零 (修复金币超过阈值被清零) */
+    if (HC.getDiamondNum && !HC.__hymodDiamondFix) {
+      HC.__hymodDiamondFix = 1;
+      HC.getDiamondNum = function () {
+        var t = ok(function () { return R("HYData").get("base.diamondInfo") || {}; }) || {};
+        var n = 0;
+        if (t.total) {
+          var dec = ok(function () { return R("DY").utils.decodePrice(t.total); });
+          n = parseInt(dec || "0", 10) || 0;
+        }
+        if (!isFinite(n) || n < 0) { log("getDiamondNum 异常值 " + n + " -> 0"); return 0; }
+        return n;
+      };
+      log("HYCommon.getDiamondNum 已解除 3e4 归零限制");
+    }
+    /* 12) base.cheat 清零 */
     ok(function () {
       var HD = R("HYData");
       var v = HD.get("base.cheat");
@@ -455,13 +475,26 @@
   function nameOf(key, p, id) {
     try {
       if (!p) return "ID " + id;
-      var s = p.name || p.title || p.id || id;
+      var s = p.name || p.title || p.buildName || p.id || id;
       var DY = R("DY");
       if (DY && DY.i18n && DY.i18n.t) { var tr = DY.i18n.t(s); if (tr) return tr; }
       return String(s);
     } catch (e) { return "ID " + id; }
   }
   M.profiles = profiles; M.allProfiles = allProfiles;
+
+  /* ================= 词典补丁 (修复 name 键缺失导致名字为空) ================= */
+  var dictP = { item_name_4000: "石块" };
+  function patchDict() {
+    ok(function () {
+      var cn = R("cn");
+      if (!cn) return;
+      var n = 0;
+      for (var k in dictP) { if (!cn[k]) { cn[k] = dictP[k]; n++; } }
+      if (n) log("词典补丁已写入 " + n + " 项");
+    }, "patchDict");
+  }
+  M.patchDict = patchDict;
 
   /* ================= 物品 ================= */
   function itemName(p) { return nameOf("item", p); }
@@ -474,7 +507,11 @@
   function pickerItems(cb) {
     allProfiles("item", function (cur) {
       var arr = [];
-      for (var k in (cur || {})) { var p = cur[k]; arr.push([String(k), nameOf("item", p, k), p.icon || ""]); }
+      for (var k in (cur || {})) {
+        var p = cur[k];
+        if (p && p.type == 18) continue; /* R6: 宠物道具(17103-17105)不参与全物品发放 */
+        arr.push([String(k), nameOf("item", p, k), p.icon || ""]);
+      }
       cb && cb(arr);
     });
   }
@@ -498,82 +535,553 @@
   }
   M.giveItems = giveItems;
 
-  /* ================= 货币 ================= */
-  function grantCurrency(gold, silver) {
+  /* ================= 货币 =================
+     R1: 走游戏原生邮件通道 — HYHttpMgr.addMail 创建邮件 -> HYMail.updateReceiveState
+     领取(服务端状态) -> HYCommon.addItemNum(同游戏 _doReceive 的本地发放路径)。
+     失败时回退到旧的直连发放, 保证功能可用。 */
+  function grantCurrencyDirect(gold, silver, why) {
     var HC = R("HYCommon");
     if (!HC) return;
-    if (gold) ok(function () { HC.updateDiamondNum(gold, !0, { type: "hycmod", reasonId: "hycmod" }, null); }, "gold");
-    if (silver) ok(function () { HC.updateShellNum(silver, !0, { type: "hycmod", reasonId: "hycmod" }, null); }, "silver");
-    T("已发放 金币+" + (gold || 0) + " 银币+" + (silver || 0));
+    if (gold > 0) ok(function () { HC.updateDiamondNum(gold, !0, { type: "hycmod", reasonId: "hycmod" }, null); }, "gold");
+    if (silver > 0) ok(function () { HC.updateShellNum(silver, !0, { type: "hycmod", reasonId: "hycmod" }, null); }, "silver");
+    T("已直接发放 金币+" + (gold || 0) + " 银币+" + (silver || 0) + (why ? " [" + why + "]" : ""));
     if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
   }
+  function grantCurrencyByMail(gold, silver) {
+    var HH = R("HYHttpMgr"), DY = R("DY"), HC = R("HYCommon"), HD = R("HYData"), HM = R("HYMail");
+    if (!HH || !DY || !HC || !HM || !HH.addMail) { grantCurrencyDirect(gold, silver, "邮件模块不可用"); return; }
+    var goods = [];
+    if (gold > 0) goods.push("5000," + gold);
+    if (silver > 0) goods.push("5001," + silver);
+    var mail = {
+      channel: "_",
+      to: DY.cache.uid,
+      title: "物资补给",
+      message: "补给已送达, 请查收",
+      goods: goods.join(";"),
+      deadline: Date.now() + 2592e6,
+      from: 0,
+      nick: "系统",
+      type: 1
+    };
+    T("邮件发放中 金币+" + gold + " 银币+" + silver + " ...");
+    HH.addMail(mail, function (err, res) {
+      var id = res && res.data && (res.data.id || res.data.mailId);
+      if (err || !res || (res.errorCode !== undefined && res.errorCode !== 0) || !id) {
+        log("addMail 失败: err=" + err + " res=" + jstr(res));
+        grantCurrencyDirect(gold, silver, "建邮件失败");
+        return;
+      }
+      var mid = String(id);
+      log("邮件已创建 id=" + mid + ", 走原生领取流程");
+      ok(function () {
+        HM.updateReceiveState([mid], function (succ) {
+          if (!succ) { grantCurrencyDirect(gold, silver, "领取失败"); return; }
+          if (gold > 0) ok(function () { HC.addItemNum("5000", gold, 1, null, { type: "receiveMail", reasonId: mid }); }, "mailGold");
+          if (silver > 0) ok(function () { HC.addItemNum("5001", silver, 1, null, { type: "receiveMail", reasonId: mid }); }, "mailSilver");
+          T("邮件领取成功: 金币+" + gold + " 银币+" + silver);
+          if (cfg.autoSave) ok(function () { HD.trySave(); });
+        });
+      }, "recvMail");
+    });
+  }
+  function grantCurrency(gold, silver) {
+    grantCurrencyByMail(parseInt(gold, 10) || 0, parseInt(silver, 10) || 0);
+  }
   M.grantCurrency = grantCurrency;
+  M.grantCurrencyDirect = grantCurrencyDirect;
 
   /* ================= 背包 / 仓库 ================= */
+  /* R5 修复: getBagObj()/getWareHouseObj() 每次 new 一个空容器(副本), 不是游戏真身;
+     真实单例是 HYContainer.HYBag / HYContainer.HYWarehouse (游戏内所有背包逻辑都用它) */
   function containers() {
     var HC = R("HYContainer");
     if (!HC) return null;
-    var bag = ok(function () { return HC.getBagObj(); });
-    var wh = ok(function () { return HC.getWareHouseObj(); });
+    var bag = HC.HYBag, wh = HC.HYWarehouse;
     if (!bag || !wh) return null;
     return { bag: bag, wh: wh };
   }
   function bagToWarehouse() {
     var c = containers();
-    if (!c) { T("容器未就绪"); return; }
-    var n = 0;
-    var all = ok(function () { return c.bag.getAllItemNotCheck(); }) || c.bag.mItems || {};
-    for (var k in all) {
+    if (!c) { T("容器未就绪 (请先进入游戏)"); return; }
+    var bag = c.bag, wh = c.wh;
+    var all = ok(function () { return bag.getAllItemNotCheck(); }) || {};
+    var keys = Object.keys(all);
+    if (!keys.length) { T("背包是空的, 无需搬运"); return; }
+    var moved = 0, left = 0, delta = 0;
+    for (var i = 0; i < keys.length; i++) (function (k) {
       var it = all[k];
-      if (!it) continue;
-      ok(function () { c.wh.addItem(it); c.bag.delItem(it); });
-      n++;
-    }
-    T("已搬入仓库 " + n + " 件");
+      if (!it) return;
+      var cnt = parseInt(ok(function () { return it.getCount(); }) || 1, 10) || 1;
+      var dst = wh.mItems[k];
+      if (dst) {
+        /* 仓库已有同 key: 可堆叠合并数量, 不可堆叠(理论不出现)留在背包 */
+        if (ok(function () { return dst.isStackable && dst.isStackable(); })) {
+          ok(function () { dst.add(cnt); wh._saveData(k, dst.save()); }, "r5merge");
+          ok(function () { bag.delItem(k, cnt); }, "r5del");
+          try { wh.emit(wh.SIGNAL.ADDITEM, dst); } catch (e) {}
+          moved++; delta += cnt;
+        } else left++;
+        return;
+      }
+      /* 新 key: 从背包整件直搬进仓库(不受负重上限限制, 与 MOD 批量发物品一致);
+         同时维护 mItemID2Id / saveData, 保证负重统计与读档一致 */
+      ok(function () {
+        var HI = R("HYItem"), HG = R("HYGlobalBag");
+        try {
+          if (HI && HI.isToken && HI.isToken(it) && it.getLock && !it.getLock()) {
+            it.setLock(!0);
+            HG && HG.changeItemNum(it.getItemId(), cnt);
+          }
+        } catch (e) {}
+        delete bag.mItems[k];
+        try { bag._onDelItem(k, it.getItemId()); } catch (e) {}
+        bag._saveData(k);
+        wh.mItems[k] = it;
+        try { wh._onAddItem(k, it.getItemId()); } catch (e) {}
+        wh._saveData(k, it.save());
+        try { bag.emit(bag.SIGNAL.DELITEM, it); } catch (e) {}
+        try { wh.emit(wh.SIGNAL.ADDITEM, it); } catch (e) {}
+      }, "r5move");
+      if (wh.mItems[k]) { moved++; delta += cnt; } else left++;
+    })(keys[i]);
+    T("已搬入仓库 " + moved + " 种" + (left ? (", 留背包 " + left + " 种") : "") + ", 共 " + delta + " 件");
     if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
   }
   function clearBag() {
     var c = containers();
-    if (!c) { T("容器未就绪"); return; }
-    var ids = [], all = ok(function () { return c.bag.getAllItemNotCheck(); }) || c.bag.mItems || {};
+    if (!c) { T("容器未就绪 (请先进入游戏)"); return; }
+    var ids = [], all = ok(function () { return c.bag.getAllItemNotCheck(); }) || {};
     for (var k in all) ids.push(k);
     for (var i = 0; i < ids.length; i++) ok(function () { c.bag.delItem(ids[i], 999999); });
-    T("背包已清空 (" + ids.length + " 件)");
+    T("背包已清空 (" + ids.length + " 种)");
     if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
   }
   function grantAllItems(count) {
-    var cur = profiles("item");
-    if (!cur) { T("物品表未就绪"); return; }
-    var ids = [];
-    for (var k in cur) ids.push(String(k));
-    giveItems(ids, count, "warehouse");
+    allProfiles("item", function (cur) {
+      if (!cur) { T("物品表未就绪"); return; }
+      var ids = [];
+      for (var k in cur) {
+        var p = cur[k];
+        if (p && p.type == 18) continue; /* R6: 宠物道具不补发到仓库 */
+        ids.push(String(k));
+      }
+      giveItems(ids, count, "warehouse");
+    });
   }
   M.bagToWarehouse = bagToWarehouse; M.clearBag = clearBag;
 
-  /* ================= 科技 ================= */
-  function techMaxAll() {
-    allProfiles("technology", function (cur) {
-      if (!cur) { T("科技表未就绪"); return; }
+  /* ================= R7: 不可堆叠 -> 可堆叠 =================
+     装备(h)/火把(_)/钓竿(g)/药剂(D)/信件(y) 原本 isStackable=false, 且装备/药剂
+     每件一个 <id>_<seq> 键, "全物品 x99" 会把仓库格数撑爆。这里在原型层补成
+     "可堆叠 + count 语义":
+       - getId() 改为共享键 (装备/火把: baseId@耐久#词缀, 钓竿: baseId@耐久,
+         药剂: baseId@品质参数), 同状态的物品才能合并;
+       - getCount/setCount/add/reduce/copy 走数量语义; copy 变为真拷贝;
+       - save/load 保留 count (旧存档的 <id>_<seq> 条目不受影响, 仍按原键保留);
+       - 修正 HYItem.create/createItems 批量创建时 "同键互相覆盖" 导致的数量丢失。
+     另提供 compactStacks(): 把仓库/背包里已有的同名可堆叠条目合并成一格。 */
+  function stackKey(it) {
+    var HI = R("HYItem"), base = String(it.mItemId);
+    try {
+      var extra = "";
+      if (HI && HI.potion && it instanceof HI.potion) {
+        return base + "@" + [it.mQuality, it.mAppearance, it.mDuration, it.mEffect, it.mAlchemyLv].join(",");
+      }
+      if (HI && HI.pole && it instanceof HI.pole) return base + "@" + (parseInt(it.mDuration, 10) || 0);
+      if (HI && (it instanceof HI.equipment || it instanceof HI.firebrand)) {
+        var aff = "";
+        try {
+          var ks = [];
+          for (var a in (it.mAffix || {})) if (it.mAffix[a] != null) ks.push(a + ":" + it.mAffix[a]);
+          ks.sort();
+          aff = ks.join(",");
+        } catch (e) {}
+        return base + "@" + (parseInt(it.mDuration, 10) || 0) + "#" + aff;
+      }
+    } catch (e) {}
+    return base;
+  }
+  function mixinStack(C, fields) {
+    if (!C || !C.prototype) return false;
+    var P = C.prototype;
+    if (Object.prototype.hasOwnProperty.call(P, "__hyStack")) return false;
+    P.__hyStack = 1;
+    P.isStackable = function () { return true; };
+    P.getCount = function () { return this.mHyCnt == null ? 1 : this.mHyCnt; };
+    P.setCount = function (n) { this.mHyCnt = ~~n; };
+    P.add = function (n) { this.setCount(this.getCount() + (~~n || 0)); return this.getCount(); };
+    P.reduce = function (n) {
+      var take = Math.min(this.getCount(), ~~n || 0);
+      var c = this.copy();
+      c.setCount(take);
+      this.setCount(this.getCount() - take);
+      return c;
+    };
+    P.copy = function () {
+      var Ctor = this.constructor || C;
+      var c = new Ctor(this.mItemId);
+      if (fields) fields(c, this);
+      if (this.mId != null) c.mId = this.mId;
+      c.setCount(this.getCount());
+      return c;
+    };
+    P.getId = function () { if (!this.mId) this.mId = stackKey(this); return this.mId; };
+    return true;
+  }
+  function wrapSaveLoad(C, fallback) {
+    var P = C.prototype;
+    var oldSave = P.save, oldLoad = P.load;
+    P.save = function () {
+      var o = null;
+      try { o = oldSave ? oldSave.call(this) : null; } catch (e) { o = null; }
+      if (!o) o = fallback ? fallback.call(this) : { baseId: this.mItemId, id: this.getId() };
+      o.count = this.getCount();
+      return o;
+    };
+    P.load = function (e) {
+      if (oldLoad) oldLoad.call(this, e);
+      if (e && e.count != null) this.setCount(e.count);
+    };
+  }
+  function copyAffixTo(dst, src) { try { for (var k in (src || {})) dst[k] = src[k]; } catch (e) {} }
+  function fEquip(c, s) { c.mDuration = s.mDuration; c.mAffix = {}; copyAffixTo(c.mAffix, s.mAffix); }
+  function fTorch(c, s) { fEquip(c, s); c.mUseTime = s.mUseTime; }
+  function fPole(c, s) { c.mDuration = s.mDuration; }
+  function fPotion(c, s) { c.mQuality = s.mQuality; c.mAppearance = s.mAppearance; c.mDuration = s.mDuration; c.mEffect = s.mEffect; c.mAlchemyLv = s.mAlchemyLv; }
+  function fLetter(c, s) { c.mObtainTime = s.mObtainTime; }
+  function fbEquip() { return { baseId: this.mItemId, id: this.getId(), duration: parseInt(this.mDuration, 10) || 0, affix: this.mAffix || {} }; }
+  function fbTorch() { var o = fbEquip.call(this); o.useTime = this.mUseTime || 0; return o; }
+  function fbPole() { return { baseId: this.mItemId, id: this.getId(), duration: parseInt(this.mDuration, 10) || 0 }; }
+  function patchItemCreate() {
+    var HI = R("HYItem");
+    if (!HI || HI.__hyCreate) return;
+    HI.__hyCreate = 1;
+    var oldCreate = HI.create;
+    function mergeSameKey(r) {
+      if (!(r instanceof Array) || r.length < 2) return r;
+      var k0 = null, same = true;
+      for (var i = 0; i < r.length; i++) {
+        var kk = null;
+        try { kk = r[i].getId(); } catch (e) { kk = null; }
+        if (i === 0) k0 = kk; else if (kk !== k0) { same = false; break; }
+      }
+      if (!same || k0 == null) return r;
+      var one = r[0];
+      try {
+        for (var j = 1; j < r.length; j++) {
+          var it = r[j];
+          if (one.mAffix && it.mAffix) for (var a in it.mAffix) {
+            if (one.mAffix[a] == null || it.mAffix[a] > one.mAffix[a]) one.mAffix[a] = it.mAffix[a];
+          }
+        }
+        if (one.setCount) one.setCount(r.length);
+        one[0] = one; one.length = 1; /* 兼容按数组遍历的调用方 */
+      } catch (e) {}
+      return one;
+    }
+    HI.create = function (id, count) {
+      var r = oldCreate.apply(this, arguments);
+      if (r instanceof Array) return mergeSameKey(r);
+      try {
+        if (r && r.setCount && r.getCount && r.getCount() === 1 && (~~count) > 1) r.setCount(~~count);
+      } catch (e) {}
+      return r;
+    };
+    HI.createItems = function (map) {
+      var out = {};
+      for (var id in (map || {})) {
+        var c = ~~map[id];
+        if (c <= 0) continue;
+        var r = HI.create(id, c);
+        if (r instanceof Array) { for (var i = 0; i < r.length; i++) if (r[i]) out[r[i].getId()] = r[i]; }
+        else if (r && r.getId) out[r.getId()] = r;
+      }
+      return out;
+    };
+  }
+  function installStackPatch() {
+    var HI = R("HYItem"), HP = R("HYProfile");
+    if (!HI || !HP || !HI.create) return;
+    if (M.__r7done) return;
+    var tbl = null;
+    ok(function () { tbl = HP.mProfiles && HP.mProfiles.item; });
+    if (!tbl) return;
+    patchItemCreate();
+    function inst(id) {
+      if (!id) return null;
+      var r = null;
+      try { r = HI.create(String(id), 1); } catch (e) { r = null; }
+      if (r instanceof Array) r = r[0];
+      return r || null;
+    }
+    var ids3 = [], poleId = null, potionId = null, letterId = null, normalId = null;
+    for (var k in tbl) {
+      var p = tbl[k];
+      if (!p) continue;
+      if (p.type == 3) { if (ids3.length < 60) ids3.push(k); }
+      else if (p.type == 11 && !poleId) poleId = k;
+      else if (p.type == 14 && !potionId) potionId = k;
+      else if (p.type == 8 && !letterId) letterId = k;
+      else if (!normalId && [0, 1, 2, 4, 6, 7, 9, 10, 13, 15, 16].indexOf(p.type) >= 0) normalId = k;
+    }
+    /* 建表完成前 create 会抛错/给空, 此时不落任何补丁, 等下一次 interval 重试 */
+    var readyAll = true;
+    if (!inst(normalId)) readyAll = false;
+    if (readyAll && ids3.length && !inst(ids3[0])) readyAll = false;
+    if (readyAll && poleId && !inst(poleId)) readyAll = false;
+    if (readyAll && potionId && !inst(potionId)) readyAll = false;
+    if (readyAll && letterId && !inst(letterId)) readyAll = false;
+    if (!readyAll) return;
+    var equipIt = null, torchIt = null;
+    for (var i = 0; i < ids3.length && (!equipIt || !torchIt); i++) {
+      var s3 = inst(ids3[i]);
+      if (!s3) continue;
+      if (HI.firebrand && s3 instanceof HI.firebrand) torchIt = torchIt || s3;
+      else if (HI.equipment && s3 instanceof HI.equipment) equipIt = equipIt || s3;
+    }
+    var changed = 0;
+    if (equipIt && mixinStack(equipIt.constructor, fEquip)) { wrapSaveLoad(equipIt.constructor, fbEquip); changed++; }
+    if (torchIt && mixinStack(torchIt.constructor, fTorch)) { wrapSaveLoad(torchIt.constructor, fbTorch); changed++; }
+    var itP = inst(poleId);
+    if (itP && mixinStack(itP.constructor, fPole)) { wrapSaveLoad(itP.constructor, fbPole); changed++; }
+    var itD = inst(potionId);
+    if (itD && mixinStack(itD.constructor, fPotion)) { wrapSaveLoad(itD.constructor, null); changed++; }
+    var itY = inst(letterId);
+    if (itY && mixinStack(itY.constructor, fLetter)) { wrapSaveLoad(itY.constructor, null); changed++; }
+    M.__r7done = true;
+    log("R7 堆叠补丁已安装 (" + changed + " 类)");
+  }
+  M.installStackPatch = installStackPatch;
+  /* 把容器里已有的同名可堆叠条目合并为一格 (兼容旧存档的 _序号 键) */
+  function compactStacks() {
+    var c = containers();
+    if (!c) { T("容器未就绪 (请先进入游戏)"); return; }
+    var mergedKeys = 0, groups = 0;
+    function doOne(cnt) {
+      var g = {};
+      for (var k in cnt.mItems) {
+        var it = cnt.mItems[k];
+        if (!it || !it.isStackable) continue;
+        var stk = ok(function () { return it.isStackable(); });
+        if (!stk) continue;
+        var sig = stackKey(it);
+        (g[sig] = g[sig] || []).push(k);
+      }
+      for (var sig2 in g) {
+        var ks = g[sig2];
+        if (ks.length < 2) continue;
+        var keepK = ks[0];
+        for (var i = 0; i < ks.length; i++) if (ks[i] === sig2) { keepK = ks[i]; break; }
+        var keep = cnt.mItems[keepK];
+        var total = 0;
+        for (var j = 0; j < ks.length; j++) {
+          var one = cnt.mItems[ks[j]];
+          total += parseInt(ok(function () { return one.getCount(); }) || 1, 10) || 1;
+        }
+        try {
+          if (!keep.setCount || !keep.save) throw new Error("no count");
+          keep.setCount(total);
+          cnt._saveData(keepK, keep.save());
+          for (var j2 = 0; j2 < ks.length; j2++) {
+            if (ks[j2] === keepK) continue;
+            var del = cnt.mItems[ks[j2]];
+            delete cnt.mItems[ks[j2]];
+            try { cnt._onDelItem(ks[j2], del && del.getItemId()); } catch (e) {}
+            cnt._saveData(ks[j2]);
+          }
+          mergedKeys += ks.length - 1; groups++;
+        } catch (e) { log("堆叠整理跳过 " + sig2 + ": " + e); }
+      }
+    }
+    doOne(c.wh); doOne(c.bag);
+    T(groups ? ("堆叠整理完成: " + groups + " 组, 合并 " + mergedKeys + " 格") : "没有可合并的重复堆叠");
+    if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+  }
+  M.compactStacks = compactStacks;
+
+  /* ================= 科技 =================
+     R11: 按面板四大类(工具20100/医药20400/厨房20300/负重10000)分别解锁
+     R12: 写入 base.technology.product.<pid>.<tid>=最高级 — 游戏 techItem/techFight
+          都是实时读存档, 写入即真实生效; 负重类额外刷新背包/仓库容量缓存
+     R13: 解锁后调用 PanelTechnology._layProduct 刷新进度条 (r/总数) 同步 */
+  function findComponentByClass(name) {
+    var out = null;
+    ok(function () {
+      var sc = cc.director.getScene();
+      if (!sc) return;
+      var st = [sc], n = 0;
+      while (st.length && n < 4000) {
+        var nd = st.pop(); n++;
+        var cs = nd._components || [];
+        for (var i = 0; i < cs.length; i++) {
+          var c = cs[i];
+          var cn = null;
+          try { cn = cc.js && cc.js.getClassName ? cc.js.getClassName(c) : c.__classname__; } catch (e) { cn = c.__classname__; }
+          if (cn === name) { out = c; return; }
+        }
+        var ch = nd._children || [];
+        for (var j = 0; j < ch.length; j++) st.push(ch[j]);
+      }
+    }, "findCmp");
+    return out;
+  }
+  M.findComponentByClass = findComponentByClass;
+
+  function refreshLoadMax() {
+    ok(function () {
+      var HC = R("HYContainer"), HP = R("HYPlayer"), HB = R("HYBuild");
+      if (HC && HC.HYBag && HP && HP.getMaxLoad) HP.getMaxLoad(null, function (v) { ok(function () { HC.HYBag.setMaxLoad(v); }); });
+      if (HC && HC.HYWarehouse && HB && HB.getWareHouseMaxLoad) HB.getWareHouseMaxLoad(function (v) { ok(function () { HC.HYWarehouse.setMaxLoad(v); }); });
+      log("背包/仓库负重上限已按新科技刷新");
+    }, "refreshLoad");
+  }
+  /* R13: 面板自带的 r/总数 分母是含等级变体的行数(永远到不了), 改为行级进度:
+     分子 = 已满足的科技行数(存档等级 >= 该行等级), 分母 = 该 tag 全部行数 */
+  function techRowStat(tag, pids, cur) {
+    var sat = 0, tot = 0;
+    var save = ok(function () { return R("HYData").get("base.technology.product") || {}; }) || {};
+    for (var i = 0; i < pids.length; i++) {
+      var pid = String(pids[i]);
+      var lv = save[pid] || {};
+      for (var k in cur) {
+        var p = cur[k];
+        if (!p || String(p.productId) !== pid) continue;
+        var parts = String(p.id || k).split("_");
+        var tid = parts[0], need = parseInt(parts[1] || "1", 10) || 1;
+        tot++;
+        if ((parseInt(lv[tid], 10) || 0) >= need) sat++;
+      }
+    }
+    return [sat, tot];
+  }
+  function refreshTechLabel(p) {
+    ok(function () {
+      if (!p || !p.labTag || !p.mCurTag) return;
+      var cur = profiles("technology");
+      if (!cur) return;
       var HT = R("HYTechnology");
-      if (!HT) return;
-      var best = {}, k;
-      for (k in cur) {
-        var p = cur[k] || {};
-        var pid = String(p.productId || k.split("_")[0]);
-        var key = String(p.id || k);
-        var parts = key.split("_"), lv = parseInt(parts[1] || "1", 10) || 1, tid = parts[0];
-        var gk = pid + "|" + tid;
-        if (!best[gk] || lv > best[gk].lv) best[gk] = { lv: lv, pid: pid, tid: tid };
+      if (!HT || !HT.getTechByTag) return;
+      HT.getTechByTag(p.mCurTag, function (pids) {
+        var st = techRowStat(p.mCurTag, pids || [], cur);
+        p.__hmStatCache = st;
+        try { p.labTag.string = st[0] + "/" + st[1]; } catch (e) {}
+      }, 1);
+    }, "techLabel");
+  }
+  function techLabelHook(self) {
+    ok(function () {
+      var lab = self && self.labTag;
+      if (!lab || lab.__hmLabHooked) return;
+      var desc = null;
+      for (var o = lab; o && !desc; o = Object.getPrototypeOf(o)) {
+        var d = Object.getOwnPropertyDescriptor(o, "string");
+        if (d && d.set) desc = d;
       }
-      var n = 0;
-      for (var g in best) {
-        var b = best[g];
-        ok(function () { HT.setTechnology(b.pid, b.tid + "_" + b.lv); n++; });
-      }
-      T("科技已全部拉满 (" + n + " 项)");
-      if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+      if (!desc || !desc.set) return;
+      var protoSet = desc.set;
+      var stored = lab.string;
+      Object.defineProperty(lab, "string", {
+        configurable: true,
+        get: function () { return stored; },
+        set: function (v) {
+          var s = String(v == null ? "" : v);
+          var c = self.__hmStatCache;
+          if (c && /^\d+\s*\/\s*\d+$/.test(s)) s = c[0] + "/" + c[1];
+          stored = s;
+          return protoSet.call(this, s);
+        }
+      });
+      lab.__hmLabHooked = 1;
+      log("科技进度标签写入已拦截");
+    }, "techLabHook");
+  }
+  var techPanelHooked = false;
+  function installTechPanelHook() {
+    if (techPanelHooked) return;
+    ok(function () {
+      var cls = cc.js && cc.js.getClassByName && cc.js.getClassByName("PanelTechnology");
+      if (!cls || !cls.prototype || !cls.prototype._layProduct) return;
+      var raw = cls.prototype._layProduct;
+      cls.prototype._layProduct = function (t) {
+        var res = raw.apply(this, arguments);
+        var self = this;
+        techLabelHook(self);
+        setTimeout(function () { refreshTechLabel(self); }, 500);
+        setTimeout(function () { refreshTechLabel(self); }, 1800);
+        return res;
+      };
+      techPanelHooked = true;
+      log("PanelTechnology 进度栏已挂钩 (行级进度显示)");
+    }, "techPanelHook");
+  }
+  M.installTechPanelHook = installTechPanelHook;
+
+  function refreshTechPanel() {
+    var p = findComponentByClass("PanelTechnology");
+    if (!p) return false;
+    var idx = { "20100": 0, "20400": 1, "20300": 2, "10000": 3 }[p.mCurTag];
+    if (idx === undefined) idx = 0;
+    ok(function () { if (p._layProduct) p._layProduct({ currIndex: idx }); }, "layProduct");
+    setTimeout(function () { refreshTechLabel(p); }, 600);
+    log("科技面板已刷新");
+    return true;
+  }
+  M.refreshLoadMax = refreshLoadMax; M.refreshTechPanel = refreshTechPanel;
+
+  function techMaxByTag(tag, label, done) {
+    var HT = R("HYTechnology");
+    if (!HT || !HT.getTechByTag) { T("科技模块未就绪"); done && done(0); return; }
+    allProfiles("technology", function (cur) {
+      if (!cur) { T("科技表未就绪"); done && done(0); return; }
+      HT.getTechByTag(tag, function (pids, total) {
+        var n = 0;
+        for (var i = 0; i < (pids || []).length; i++) {
+          (function (pid) {
+            pid = String(pid);
+            var best = {}, k;
+            for (k in cur) {
+              var p = cur[k] || {};
+              if (String(p.productId) !== pid) continue;
+              var parts = String(p.id || k).split("_");
+              var tid = parts[0], lv = parseInt(parts[1] || "1", 10) || 1;
+              if (!best[tid] || lv > best[tid]) best[tid] = lv;
+            }
+            for (var tid2 in best) {
+              (function (t2) {
+                ok(function () { HT.setTechnology(pid, t2 + "_" + best[t2]); n++; });
+              })(tid2);
+            }
+          })(pids[i]);
+        }
+        if (label) T(label + " 已解锁 " + n + " 条 (面板上限 " + total + ")");
+        if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+        done && done(n);
+      }, 1);
     });
   }
+  function techMaxAll() {
+    var tags = [["20100", "工具科技"], ["20400", "医药科技"], ["20300", "厨房科技"], ["10000", "负重科技"]];
+    var left = tags.length, sum = 0;
+    for (var i = 0; i < tags.length; i++) {
+      (function (tg) {
+        techMaxByTag(tg[0], null, function (n) {
+          sum += n; left--;
+          if (left === 0) {
+            T("四类科技已全部拉满 (" + sum + " 条)");
+            refreshLoadMax(); refreshTechPanel();
+          }
+        });
+      })(tags[i]);
+    }
+  }
+  function techUnlockTag(tag, label) {
+    techMaxByTag(tag, label, function () {
+      refreshLoadMax();
+      if (!refreshTechPanel()) log("科技面板未打开, 进度将在下次打开时重算");
+    });
+  }
+  M.techMaxByTag = techMaxByTag; M.techUnlockTag = techUnlockTag;
 
   /* ================= 建筑 ================= */
   function buildComIds(cb) {
@@ -628,17 +1136,73 @@
     });
   }
 
-  /* ================= 成就 ================= */
+  /* ================= 成就 =================
+     R15: 旧的 _handleSingle(1e9) 不会伪造进度(实测回调仍是真实进度), 完全无效。
+     现改为直接完成: 写 base.achievement.detail.<id> = finish(与面板 _doReceive 同编码),
+     补发未领阶段的金币(updateDiamondNum)/积分(_setTotalScore)/exReward, 并刷新面板。 */
+  function achLastProgress(p) {
+    var out = 0;
+    ok(function () {
+      var HPr = R("HYProfile"), HA = R("HYAchievement");
+      var conds = p.cond || [];
+      var cid = conds[conds.length - 1];
+      var row = (HPr && HPr.getByIdDirect) ? HPr.getByIdDirect("cond", cid) : null;
+      if (row && HA && HA.truncSubBrackets) out = parseInt(HA.truncSubBrackets(row), 10) || 0;
+    }, "lastProg");
+    return out;
+  }
+  function refreshAchPanel() {
+    var p = findComponentByClass("PanelAchieve");
+    if (!p) return false;
+    ok(function () {
+      var n = (p.mGroups && p.mGroups.length) || 3;
+      for (var i = 0; i < n; i++) { try { p._initAchieve(i); } catch (e) {} }
+      if (p._refreshTotalDots) p._refreshTotalDots();
+    }, "achRefresh");
+    log("成就面板已刷新");
+    return true;
+  }
+  M.refreshAchPanel = refreshAchPanel;
+  function finishAchievements(ids, cur) {
+    var HA = R("HYAchievement"), HD = R("HYData"), HC = R("HYCommon"), MS = R("ModelShop");
+    if (!HA || !HD || !cur) { T("成就表未就绪"); return; }
+    var done = 0, coinSum = 0, ptSum = 0, exN = 0;
+    for (var i = 0; i < ids.length; i++) {
+      (function (id) {
+        var p = cur[id];
+        if (!p) return;
+        var st = HA.decode(HD.get("base.achievement.detail." + id) || "0000");
+        if (st.achieveState === "finish") return;
+        var conds = p.cond || [];
+        var last = conds.length - 1;
+        if (last < 0) return;
+        var idx = Math.max(0, Math.min(st.stageIndex || 0, last));
+        var coins = 0, u;
+        for (u = idx; u <= last; u++) coins += parseInt((p.coin || [])[u], 10) || 0;
+        var from = (st.stageState === "toreceive") ? idx + 1 : idx;
+        var pts = 0;
+        for (u = from; u <= last; u++) pts += parseInt((p.point || [])[u], 10) || 0;
+        var prog = achLastProgress(p) || st.progress || 1;
+        var enc = HA.encrypt({ achieveState: "finish", stageIndex: last, stageState: "finish", progress: prog });
+        HD.set("base.achievement.detail." + id, enc);
+        if (pts) HA._setTotalScore(pts);
+        if (p.exReward) { exN++; ok(function () { MS.ShopGetter.addGoodsToPlayer(null, 1, { successGet: [p.exReward] }, "achievement"); }); }
+        done++; coinSum += coins; ptSum += pts;
+      })(ids[i]);
+    }
+    if (!done) { T("所选成就均已完成"); return; }
+    if (coinSum > 0) ok(function () { HC.updateDiamondNum(coinSum, !0, { type: "achievement", reasonId: "hycmod_ach" }, null); }, "achCoin");
+    T("成就已解锁 " + done + " 个 (金币+" + coinSum + " 积分+" + ptSum + (exN ? " 额外奖励x" + exN : "") + ")");
+    if (cfg.autoSave) ok(function () { HD.trySave(); });
+    setTimeout(refreshAchPanel, 300);
+  }
+  M.finishAchievements = finishAchievements;
   function achieveAll() {
     allProfiles("achievement", function (cur) {
-      var HA = R("HYAchievement");
-      if (!HA || !cur) { T("成就表未就绪"); return; }
-      var n = 0;
-      for (var k in cur) {
-        (function (pr) { ok(function () { HA._handleSingle(pr, function () {}, 1e9); n++; }); })(cur[k]);
-      }
-      T("已推进 " + n + " 个成就至可领取");
-      if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+      if (!cur) { T("成就表未就绪"); return; }
+      var ids = [];
+      for (var k in cur) ids.push(String(k));
+      finishAchievements(ids, cur);
     });
   }
   function HA_decode(id) {
@@ -827,6 +1391,161 @@
     if (cfg.autoSave) ok(function () { HD.trySave(); });
   }
 
+  /* ---- R9: 状态细化 (饱食/健康/精力 单项回满 + HP 值/上限设置, 支持指定角色) ---- */
+  var STATE_CN = { hunger: "饱食", health: "健康", mentality: "精力" };
+  function roleNameByIndex(idx) {
+    var HP = R("HYPlayer");
+    var rid = ok(function () { return HP.getRoleIdByIndex(idx); });
+    var p = null;
+    ok(function () { p = R("HYProfile").getByIdDirect("role", rid); });
+    if (p) return nameOf("role", p, rid);
+    return rid ? String(rid) : String(idx);
+  }
+  function stateTargets() {
+    var HP = R("HYPlayer");
+    if (!HP) return [];
+    var all = [], n = HP.getRoleNum ? HP.getRoleNum() : 0;
+    for (var i = 1; i <= n; i++) all.push(String(i));
+    var sel = M.vals.st_roles;
+    if (sel && sel.length) {
+      var out = [];
+      for (var j = 0; j < sel.length; j++) if (all.indexOf(String(sel[j])) >= 0) out.push(String(sel[j]));
+      if (out.length) return out;
+    }
+    return all;
+  }
+  function stateTargetsText() {
+    var HP = R("HYPlayer");
+    var all = HP && HP.getRoleNum ? HP.getRoleNum() : 0;
+    var t = stateTargets();
+    if (!t.length) return "无可用角色";
+    if (t.length === all) return "全部角色(" + all + ")";
+    var names = [];
+    for (var i = 0; i < t.length; i++) names.push(t[i] + ":" + roleNameByIndex(t[i]));
+    return "指定 " + names.join(", ");
+  }
+  function finishStateChange(ts) {
+    var HD = R("HYData"), DYN = R("DYNotify"), K = R("HYKey");
+    if (cfg.autoSave) ok(function () { HD.trySave(); });
+    for (var i = 0; i < ts.length; i++) (function (idx) {
+      ok(function () { DYN && K && DYN.post(K.kRoleState, { role: parseInt(idx, 10) }); });
+    })(ts[i]);
+  }
+  function refillAttrOne(attr) {
+    var HP = R("HYPlayer"), HD = R("HYData");
+    if (!HP || !HD) return;
+    var ts = stateTargets(), n = 0;
+    for (var i = 0; i < ts.length; i++) (function (idx) {
+      var mx = ok(function () { return HP.getState(attr + "Max", idx); });
+      if (mx > 0) { ok(function () { HD.set("core.role." + idx + "." + attr, mx); }); n++; }
+    })(ts[i]);
+    T(STATE_CN[attr] + " 已回满 (" + n + " 个角色)");
+    finishStateChange(ts);
+  }
+  function setHpValue(v) {
+    var HP = R("HYPlayer"), HD = R("HYData");
+    if (!HP || !HD) return;
+    v = parseInt(v, 10);
+    if (isNaN(v) || v < 0) { T("请输入有效 HP 数值"); return; }
+    var ts = stateTargets(), n = 0, clamp = 0;
+    for (var i = 0; i < ts.length; i++) (function (idx) {
+      var mx = parseInt(ok(function () { return HP.getState("hpMax", idx); }) || 0, 10) || 0;
+      var to = (mx > 0 && v > mx) ? (clamp++, mx) : v;
+      ok(function () { HD.set("core.role." + idx + ".hp", to); }); n++;
+    })(ts[i]);
+    T("HP 已设为 " + v + " (" + n + " 个角色" + (clamp ? ", " + clamp + " 个被上限截断" : "") + ")");
+    finishStateChange(ts);
+  }
+  function setHpMax(v) {
+    var HP = R("HYPlayer"), HD = R("HYData");
+    if (!HP || !HD) return;
+    v = parseInt(v, 10);
+    if (isNaN(v) || v <= 0) { T("请输入有效的 HP 上限"); return; }
+    var ts = stateTargets(), n = 0;
+    for (var i = 0; i < ts.length; i++) (function (idx) {
+      ok(function () {
+        HD.set("core.role." + idx + ".hpMax", v);
+        var hp = parseInt(HD.get("core.role." + idx + ".hp") || 0, 10) || 0;
+        if (hp > v) HD.set("core.role." + idx + ".hp", v);
+      });
+      n++;
+    })(ts[i]);
+    T("HP 上限已设为 " + v + " (" + n + " 个角色)");
+    finishStateChange(ts);
+  }
+  function stateRolePickerItems(cb) {
+    var HP = R("HYPlayer");
+    var arr = [];
+    var n = HP && HP.getRoleNum ? HP.getRoleNum() : 0;
+    for (var i = 1; i <= n; i++) (function (idx) {
+      var info = "";
+      ok(function () {
+        var h = Math.round(HP.getState("hunger", idx) || 0), hm = Math.round(HP.getState("hungerMax", idx) || 0);
+        var hp = Math.round(HP.getState("hp", idx) || 0), hpm = Math.round(HP.getState("hpMax", idx) || 0);
+        var exp = HP.isExploring && HP.isExploring(idx);
+        info = "饱食" + h + "/" + hm + " HP" + hp + "/" + hpm + (exp ? " 出战中" : " 在家");
+      });
+      arr.push([String(idx), roleNameByIndex(idx) + "  " + info, ""]);
+    })(i);
+    cb && cb(arr);
+  }
+  M.refillAttrOne = refillAttrOne; M.setHpValue = setHpValue; M.setHpMax = setHpMax;
+  M.stateRolePickerItems = stateRolePickerItems; M.stateTargetsText = stateTargetsText;
+
+  /* ---- R8: 角色单选/多选解锁 ---- */
+  function rolePickerItems(cb) {
+    allProfiles("role", function (cur) {
+      var arr = [];
+      var unlocked = ok(function () { return R("HYData").get("base.roleUnlock") || []; }) || [];
+      for (var k in (cur || {})) {
+        var p = cur[k];
+        if (!p) continue;
+        var has = false;
+        for (var i = 0; i < unlocked.length; i++) if (String(unlocked[i]) === String(k)) { has = true; break; }
+        arr.push([String(k), nameOf("role", p, k) + (has ? "  [已解锁]" : ""), p.job ? ("职业 " + p.job) : ""]);
+      }
+      cb(arr);
+    });
+  }
+  M.rolePickerItems = rolePickerItems;
+
+  /* ---- R16: 宠物 ---- */
+  function petUnlockSystem() {
+    var PM = R("PetMgr");
+    if (!PM) { T("宠物模块未就绪"); return; }
+    if (PM.isUnlockPetSystem && PM.isUnlockPetSystem()) { T("宠物系统已是解锁状态"); return; }
+    ok(function () { PM.unlockPetSystem(); });
+    T("宠物系统已解锁 (含初始宠物)");
+    if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+  }
+  function petPickerItems(cb) {
+    allProfiles("pet", function (cur) {
+      var arr = [];
+      for (var k in (cur || {})) {
+        var p = cur[k];
+        if (!p) continue;
+        arr.push(["pet_" + k, nameOf("pet", p, k) + (p.rarity ? "  ★" + p.rarity : ""), ""]);
+      }
+      arr.sort(function (a, b) { return (parseInt(String(a[0]).slice(4), 10) || 0) - (parseInt(String(b[0]).slice(4), 10) || 0); });
+      cb(arr);
+    });
+  }
+  function petGrant(ids) {
+    var PM = R("PetMgr");
+    if (!PM) { T("宠物模块未就绪"); return; }
+    if (PM.isUnlockPetSystem && !PM.isUnlockPetSystem()) ok(function () { PM.unlockPetSystem(); });
+    var n = 0;
+    for (var i = 0; i < ids.length; i++) {
+      var pid = String(ids[i]).replace("pet_", "");
+      (function (id) { ok(function () { PM.gainPet(id, function () { n++; }); }); })(pid);
+    }
+    setTimeout(function () {
+      T("已添加 " + n + " 只宠物到兽栏宠室");
+      if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+    }, 800);
+  }
+  M.petUnlockSystem = petUnlockSystem; M.petPickerItems = petPickerItems; M.petGrant = petGrant;
+
   M.techMaxAll = techMaxAll; M.buildMaxAll = buildMaxAll; M.buildRepairAll = buildRepairAll;
   M.achieveAll = achieveAll; M.atlasAll = atlasAll; M.petAll = petAll; M.roleAll = roleAll;
   M.applySkin = applySkin; M.applyRoles = applyRoles; M.shopBuy = shopBuy;
@@ -860,22 +1579,31 @@ function buildMenu() {
     { type: "button", id: "all_wh", title: "给仓库补发全部物品" },
     { type: "button", id: "bag_to_wh", title: "背包 -> 仓库 (全部搬入)" },
     { type: "button", id: "clear_bag", title: "清空背包" },
-    { type: "button", id: "coin_add", title: "金币 +99999 / 银币 +99999" },
-    { type: "text", title: "金币='金币'(5000)  银币='银币'(5001)  发放走游戏原生接口" }
+    { type: "button", id: "compact", title: "整理堆叠 (合并重复的装备/药剂等)" },
+    { type: "button", id: "coin_add", title: "金币 +99999 / 银币 +99999 (邮件领取)" },
+    { type: "text", title: "货币通过游戏原生邮件接口创建并领取(与「货币恢复」邮件同通道); 大额金币已修复归零问题" }
   ]});
 
   /* ---- 角色 ---- */
   tabs.push({ title: "角色", items: [
     { type: "button", id: "role_all", title: "一键解锁全部角色" },
+    { type: "button", id: "role_picker", title: "选择角色 -> 单独解锁(可多选)" },
     { type: "button", id: "skin_picker", title: "选择皮肤并应用(全皮肤)" },
     { type: "text", title: "皮肤会绕过解锁条件直接应用; 角色解锁走游戏原生 RoleDataServer" }
   ]});
 
   /* ---- 状态 ---- */
   tabs.push({ title: "状态", items: [
-    { type: "button", id: "refill", title: "一键回满 健康/饱食/精神/HP" },
+    { type: "button", id: "st_role_picker", title: "选择目标角色 当前: " + stateTargetsText() },
+    { type: "button", id: "refill_hunger", title: "一键回满 饱食" },
+    { type: "button", id: "refill_health", title: "一键回满 健康" },
+    { type: "button", id: "refill_mentality", title: "一键回满 精力" },
+    { type: "input", id: "hp_val", title: "HP 值(点下方按钮应用)", val: String(pv("hp_val", "100")), hint: "100" },
+    { type: "button", id: "set_hp", title: "应用 HP 值" },
+    { type: "input", id: "hp_max_val", title: "HP 上限(点下方按钮应用)", val: String(pv("hp_max_val", "100")), hint: "100" },
+    { type: "button", id: "set_hp_max", title: "应用 HP 上限" },
     { type: "switch", id: "lockAttrs", title: "锁定状态(不再下降)", val: sv("lockAttrs", false) },
-    { type: "button", id: "state_info", title: "查看当前角色状态" }
+    { type: "text", title: "多角色时可先选目标角色(不选=全部); 操作后自动存档并刷新状态面板" }
   ]});
 
   /* ---- 战斗 ---- */
@@ -889,8 +1617,12 @@ function buildMenu() {
 
   /* ---- 科技 ---- */
   tabs.push({ title: "科技", items: [
-    { type: "button", id: "tech_max", title: "一键科技全解锁(全产品拉满)" },
-    { type: "text", title: "读取 technology 表, 每个科技按最高等级写入 setTechnology" }
+    { type: "button", id: "tech_tool", title: "工具科技 全解锁" },
+    { type: "button", id: "tech_med", title: "医药科技 全解锁" },
+    { type: "button", id: "tech_kitchen", title: "厨房科技 全解锁" },
+    { type: "button", id: "tech_load", title: "负重科技 全解锁" },
+    { type: "button", id: "tech_max", title: "四类科技 一起全解锁" },
+    { type: "text", title: "按面板四大类分别解锁; 写入即真实生效(游戏实时读存档), 面板进度会同步刷新" }
   ]});
 
   /* ---- 建筑 ---- */
@@ -903,9 +1635,9 @@ function buildMenu() {
 
   /* ---- 成就 ---- */
   tabs.push({ title: "成就", items: [
-    { type: "button", id: "achv_all", title: "一键全部成就推进到可领取" },
-    { type: "button", id: "achv_picker", title: "选择成就 -> 单独推进" },
-    { type: "text", title: "完成后去成就面板点领取即可 (上报已拦截)" }
+    { type: "button", id: "achv_all", title: "一键解锁全部成就(含金币/积分/奖励)" },
+    { type: "button", id: "achv_picker", title: "选择成就 -> 一键解锁" },
+    { type: "text", title: "直接完成并自动领取各阶段金币与积分, 成就面板即时刷新" }
   ]});
 
   /* ---- 图鉴 ---- */
@@ -916,23 +1648,18 @@ function buildMenu() {
 
   /* ---- 宠物 ---- */
   tabs.push({ title: "宠物", items: [
-    { type: "button", id: "pet_all", title: "解锁宠物系统 + 获得全部宠物" },
-    { type: "text", title: "宠物数量较多时可能需要几秒" }
+    { type: "button", id: "pet_unlock", title: "解锁宠物系统" },
+    { type: "button", id: "pet_picker", title: "宠物选择器 -> 添加到兽栏宠室" },
+    { type: "text", title: "选择器含全部15只宠物(含特殊宠物 17103-17105 对应的 8/6/7 号), 带名字与图标" }
   ]});
 
   /* ---- 商店 ---- */
   tabs.push({ title: "商店", items: [
     { type: "switch", id: "freePay", title: "免费购买(跳过货币/人民币结算)", val: sv("freePay", true) },
+    { type: "button", id: "shop_open", title: "打开商店(修复点击无反应)" },
     { type: "button", id: "shop_picker", title: "选择商品 -> 免费购买" },
     { type: "text", title: "走 ModelShop.buyGoods(...,true) 即游戏自身的免费发放通道" },
     { type: "text", title: "!! 人民币礼包属于内购, 风险最高, 建议小号测试" }
-  ]});
-
-  /* ---- 信息 ---- */
-  tabs.push({ title: "信息", items: [
-    { type: "button", id: "world_info", title: "查看 天数/模式/副本/货币" },
-    { type: "button", id: "diag", title: "模块自检(结果见提示/logcat)" },
-    { type: "text", title: "天数与副本进度为只读显示(这两项由服务器校验, 不做修改)" }
   ]});
 
   /* ---- 安全 ---- */
@@ -951,6 +1678,8 @@ function buildMenu() {
   tabs.push({ title: "关于", items: [
     { type: "text", title: "荒野日记 MOD v" + M.ver },
     { type: "text", title: "基线: 0.0.8.070501 (OPPO 渠道服)" },
+    { type: "button", id: "world_info", title: "查看 天数/模式/副本/货币" },
+    { type: "button", id: "diag", title: "模块自检(结果见提示/logcat)" },
     { type: "text", title: "悬浮球按住可拖动; 功能以本地 hook 为主" },
     { type: "text", title: "仅供学习交流, 请勿用于主账号" }
   ]});
@@ -984,6 +1713,13 @@ function onPick(ids, count) {
     case "achv": applyAchievements(ids); break;
     case "shop": shopBuy(ids); break;
     case "role": applyRoles(ids); break;
+    case "state_role":
+      M.vals.st_roles = ids.slice();
+      saveVals();
+      T("目标角色已设置: " + stateTargetsText());
+      setTimeout(pushMenu, 200);
+      break;
+    case "pet": petGrant(ids); break;
     default: giveItems(ids, n, "warehouse");
   }
 }
@@ -1006,16 +1742,10 @@ function applyBuildLevel(ids, lv) {
   if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
 }
 function applyAchievements(ids) {
-  var HA = R("HYAchievement"), cur = profiles("achievement");
-  if (!HA || !cur) return;
-  var n = 0;
-  for (var i = 0; i < ids.length; i++) (function (id) {
-    var p = cur[id];
-    if (!p) return;
-    ok(function () { HA._handleSingle(p, function () {}, 1e9); n++; });
-  })(ids[i]);
-  T("已推进 " + n + " 个成就");
-  if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
+  allProfiles("achievement", function (cur) {
+    if (!cur) { T("成就表未就绪"); return; }
+    M.finishAchievements(ids, cur);
+  });
 }
 
 /* ================= 消息分发 ================= */
@@ -1028,24 +1758,40 @@ function dispatch(id, val) {
     case "all_wh": grantAllItems(nv("all_cnt", 99)); break;
     case "bag_to_wh": bagToWarehouse(); break;
     case "clear_bag": clearBag(); break;
+    case "compact": compactStacks(); break;
     case "coin_add": grantCurrency(99999, 99999); break;
     /* 角色 */
     case "role_all": roleAll(); break;
+    case "role_picker": rolePickerItems(function (arr) { openPicker("role", "选择角色(可多选, 确认即解锁)", arr); }); break;
+    case "pet_unlock": petUnlockSystem(); break;
+    case "pet_picker": petPickerItems(function (arr) { openPicker("pet", "选择宠物(可多选, 确认即入兽栏)", arr); }); break;
     case "skin_picker": skinPickerItems(function (arr) { openPicker("skin", "选择皮肤(选中即应用)", arr, { single: true, okText: "应 用 皮 肤" }); }); break;
     /* 状态 */
     case "refill": refillAttrs(); break;
-    case "state_info": T(stateInfo()); break;
+    case "st_role_picker": stateRolePickerItems(function (arr) { openPicker("state_role", "选择目标角色(可多选, 不选=全部)", arr, { single: false }); }); break;
+    case "refill_hunger": refillAttrOne("hunger"); break;
+    case "refill_health": refillAttrOne("health"); break;
+    case "refill_mentality": refillAttrOne("mentality"); break;
+    case "set_hp": setHpValue(nv("hp_val", 100)); break;
+    case "set_hp_max": setHpMax(nv("hp_max_val", 100)); break;
+    case "hp_val": M.vals.hp_val = val; saveVals(); break;
+    case "hp_max_val": M.vals.hp_max_val = val; saveVals(); break;
     /* 科技/建筑/成就/图鉴/宠物 */
     case "tech_max": techMaxAll(); break;
+    case "tech_tool": techUnlockTag("20100", "工具科技"); break;
+    case "tech_med": techUnlockTag("20400", "医药科技"); break;
+    case "tech_kitchen": techUnlockTag("20300", "厨房科技"); break;
+    case "tech_load": techUnlockTag("10000", "负重科技"); break;
     case "build_max": buildMaxAll(); break;
     case "build_repair": buildRepairAll(); break;
     case "build_picker": buildPickerItems(function (arr) { openPicker("build", "选择建筑(数量=等级)", arr); }); break;
     case "achv_all": achieveAll(); break;
-    case "achv_picker": achievePickerItems(function (arr) { openPicker("achv", "选择成就(可多选)", arr); }); break;
+    case "achv_picker": achievePickerItems(function (arr) { openPicker("achv", "选择成就(可多选, 确认即解锁)", arr); }); break;
     case "atlas_all": atlasAll(); break;
     case "pet_all": petAll(); break;
     /* 商店 */
     case "shop_picker": shopPickerItems(function (arr) { openPicker("shop", "选择商品(免费购买)", arr); }); break;
+    case "shop_open": M.shopForceOpen(); break;
     /* 信息 */
     case "world_info": T(worldInfo()); break;
     case "diag": T(M.diag()); break;
@@ -1099,17 +1845,92 @@ window.HYMOD_UI_READY = function () {
 };
 
 /* ================= 启动 ================= */
+  /* ================= R3: 商店打不开修复 =================
+     根因: PanelShop 模块用闭包变量缓存面板组件; 面板销毁后(或销毁流程异常时)
+     该缓存仍指向已失效组件(node=null, 节点属性全 null), 之后点「商城」
+     走 c.init(...) 直接抛 TypeError: getComponent of null → 界面无反应。
+     修复: 1) 接管模块 open: 每次校验现有对话框与组件有效性, 失效则强制重新加载;
+           2) checkAd / onDestroy 补 null 防护(旧版 prefab 可能缺 nodAdBtn 等节点)。 */
+  function installShopPatch() {
+    if (installShopPatch.done) return;
+    ok(function () {
+      var cls = cc.js && cc.js.getClassByName && cc.js.getClassByName("PanelShop");
+      if (cls && cls.prototype) {
+        var proto = cls.prototype;
+        if (!proto.__modPatch) {
+          proto.checkAd = function () {
+            var btn = this.nodAdBtn;
+            if (!btn) return;
+            var w = null;
+            try { w = btn.getComponent("WidgetAd"); } catch (e) {}
+            if (!w) return;
+            try { w.init(R("Const").AD_TYPE.SHOP); btn.active = w.canShow(); } catch (e) {}
+          };
+          var rawDie = proto.onDestroy;
+          proto.onDestroy = function () {
+            try { rawDie.apply(this, arguments); }
+            catch (e) { log("PanelShop.onDestroy 已容错: " + e); }
+          };
+          proto.__modPatch = true;
+        }
+      }
+      var PS = R("PanelShop");
+      if (PS && PS.open && !PS.__modOpen) {
+        PS.open = function (type) {
+          ok(function () {
+            var DM = R("HYDialogMgr"), DL = R("DYLoader"), HC = R("HYCommon"), C = R("Const"), DYM = R("DY");
+            if (!DM || !DL || !HC || !C) { log("商店模块未就绪"); return; }
+            if (type == C.ShopPanelType.Diamond && !(DYM && DYM.cache && DYM.cache.shopEnable)) {
+              ok(function () { R("PanelGoldCoinNotEnough").show(HC.getCoreNode(), DYM.layer.TIP); });
+              return;
+            }
+            var scene = DM.getDialog("SceneMain") ? "Main" : "InGame";
+            var dlg = DM.getDialog("PanelShop");
+            if (dlg && cc.isValid(dlg)) {
+              var comp = dlg.getComponent(dlg.name);
+              if (comp && comp.node && cc.isValid(comp.node) && comp.nodBtnList) {
+                comp.init(scene, type);
+                return;
+              }
+            }
+            if (installShopPatch.loading) return;
+            installShopPatch.loading = true;
+            DL.loadUIPanel("Shop/PanelShop", function (err, node) {
+              installShopPatch.loading = false;
+              if (err || !node) { log("PanelShop 加载失败: " + err); return; }
+              var core = HC.getCoreNode();
+              if (!cc.isValid(core)) { node.destroy(); return; }
+              core.addChild(node, DYM.layer.UI_TIP);
+              var c2 = node.getComponent(node.name);
+              if (!c2) { log("PanelShop 组件缺失"); return; }
+              c2.init(scene, type);
+            });
+          }, "shopOpen");
+        };
+        PS.__modOpen = true;
+        log("PanelShop.open 已加固 (失效缓存自愈 + null 防护)");
+      }
+    }, "shopPatch");
+    installShopPatch.done = true;
+  }
+  M.installShopPatch = installShopPatch;
+  M.shopForceOpen = function () { var PS = R("PanelShop"); if (PS && PS.open) PS.open(R("Const").ShopPanelType.BestSellers); };
+
 function boot() {
   if (!R("HYData") || !window.cc || !cc.director || !cc.director.getScene || !cc.director.getScene()) {
     setTimeout(boot, 500); return;
   }
   installSafeHooks();
   installNoBanHooks();
+  patchDict();
+  installStackPatch();
+  installTechPanelHook();
+  installShopPatch();
   M.ready = true;
   log("MOD v" + M.ver + " 已加载 (原生菜单)");
   log("模块自检: " + M.diag());
   setTimeout(function () { pushMenu(); }, 400);
-  setInterval(function () { installSafeHooks(); installNoBanHooks(); }, 5000);
+  setInterval(function () { installSafeHooks(); installNoBanHooks(); patchDict(); installStackPatch(); installTechPanelHook(); installShopPatch(); }, 5000);
 }
 M.boot = boot;
 setTimeout(boot, 800);
