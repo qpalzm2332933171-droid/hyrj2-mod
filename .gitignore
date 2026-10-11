@@ -16,3 +16,6 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# 仅本地保留 (远端仓库已删除)
+PROGRESS.md

@@ -7,8 +7,8 @@
  *  原则: 优先 hook 返回值(纯本地不上传) > 走游戏原生接口; 绝不手写存档键
  * ========================================================================= */
 (function () {
-  if (window.HYMOD && window.HYMOD.ver === "1.0.5") return;
-  var M = window.HYMOD = { ver: "1.0.5", ready: false };
+  if (window.HYMOD && window.HYMOD.ver === "1.0.6") return;
+  var M = window.HYMOD = { ver: "1.0.6", ready: false };
 
   /* ================= 模块访问 (require 是 project.js 顶部定义的全局) ================= */
   var modCache = {};
@@ -1121,6 +1121,212 @@
     ok(function () { HB.restoreAllBuildDuration(function () { T("全部建筑耐久已修复"); }); });
     if (cfg.autoSave) ok(function () { R("HYData").trySave(); });
   }
+  /* ================= R18: 建筑等级越界自愈 (迷宫出口卡关根因) =================
+     根因: 建筑选择器把 "数量" 直接当等级写入 (默认 99), 而部分建筑(如 20100)
+     的 build 档案只有 1..10 级 -> base.builds.20100.level = 99。
+     游戏每次进入迷宫关卡都会执行 HYBuild.restoreAllBuildDuration()
+     -> getBuildMaxDuration() -> HYProfile.getById("build", 20199) 回调收到 undefined
+     -> 读 t.duration 抛 "Cannot read property 'duration' of undefined":
+        * 迷宫出口确认回调 mgr.nextLevel() 中断 -> transitionTo 不执行 -> 卡在当关;
+        * 回主界面点继续挑战 -> mgr.init() 同样抛错 -> mIsClickContinue 卡 true -> 无反应。
+     修复: 1) 启动自愈: 越界等级钳到该建筑档案最大等级(落盘);
+           2) 包装 restoreAllBuildDuration, 异常时自愈并重试 (兜底);
+           3) 建筑选择器写入前钳位 (防止再写坏)。 */
+  function buildProfileMaxMap(cb) {
+    var HP = R("HYProfile");
+    if (!HP || !HP.getAll) { cb && cb({}); return; }
+    HP.getAll("build", function (all) {
+      var maxOf = {};
+      for (var id in (all || {})) {
+        var n = parseInt(id, 10);
+        if (!(n > 0)) continue;
+        var com = 100 * Math.floor(n / 100), lv = n % 100;
+        if (!maxOf[com] || lv > maxOf[com]) maxOf[com] = lv;
+      }
+      cb && cb(maxOf);
+    }, 0, 1);
+  }
+  function fixBuildLevels(cb) {
+    var HB = R("HYBuild"), HD = R("HYData");
+    if (!HB || !HD) { cb && cb([]); return; }
+    buildProfileMaxMap(function (maxOf) {
+      var builds = {};
+      ok(function () { builds = HD.get("base.builds") || {}; });
+      var fixed = [];
+      for (var k in builds) {
+        var com = 100 * Math.floor(parseInt(k, 10) / 100);
+        var lv = parseInt((builds[k] || {}).level, 10) || 0;
+        var mx = maxOf[com] || 0;
+        if (lv > 0 && mx > 0 && lv > mx) {
+          ok(function () {
+            HD.set("base.builds." + k + ".level", mx);
+            ok(function () { HB.restoreBuildDuration(k); });
+            fixed.push(k + " " + lv + "->" + mx);
+          }, "buildFix");
+        }
+      }
+      if (fixed.length) {
+        log("R18 建筑等级越界自愈: " + fixed.join(", "));
+        T("建筑等级越界已修复: " + fixed.join(", "));
+        ok(function () { HD.trySave(); });
+      }
+      cb && cb(fixed);
+    });
+  }
+  M.fixBuildLevels = fixBuildLevels;
+
+  function installBuildPatch() {
+    var HB = R("HYBuild");
+    if (!HB || HB.__hymodBuildPatch) return;
+    HB.__hymodBuildPatch = 1;
+    if (HB.getBuildMaxDuration) {
+      var rawGBM = HB.getBuildMaxDuration;
+      if (!HB.__hymodGBM) {
+        HB.__hymodGBM = 1;
+        HB.getBuildMaxDuration = function (build, cb) {
+          var self = this;
+          try { return rawGBM.call(this, build, cb); }
+          catch (e) {
+            log("getBuildMaxDuration 防护 (build=" + build + "): " + e);
+            fixBuildLevels(function () {
+              try { rawGBM.call(self, build, cb); }
+              catch (e2) { log("getBuildMaxDuration 重试失败: " + e2); cb && cb(-1); }
+            });
+          }
+        };
+        log("HYBuild.getBuildMaxDuration 已加防护");
+      }
+    }
+    if (HB.restoreAllBuildDuration) {
+      var rawRestore = HB.restoreAllBuildDuration;
+      HB.restoreAllBuildDuration = function (cb) {
+        var self = this;
+        try { return rawRestore.call(this, cb); }
+        catch (e) {
+          log("restoreAllBuildDuration 异常, 自愈后重试: " + e);
+          fixBuildLevels(function () {
+            try { rawRestore.call(self, cb); }
+            catch (e2) { log("restoreAllBuildDuration 重试仍失败(已跳过): " + e2); cb && cb(); }
+          });
+        }
+      };
+      log("HYBuild.restoreAllBuildDuration 已加防护 (R18)");
+    }
+    fixBuildLevels(function () {});
+  }
+  M.installBuildPatch = installBuildPatch;
+
+  /* ================= R19: 容器容量修改 (背包 / 仓库) =================
+     背包: 走游戏原生扩容键 base.bag.extraLoad (原生 getMaxLoad 重算即得目标值),
+           写入即落盘, 重启后依然有效。
+     仓库: 原生容量 = 仓库建筑 param + 月卡加成, 无扩容存档键 ->
+           在 MOD 侧 hook HYBuild.getWareHouseMaxLoad 返回指定值;
+           数值存于 MOD 首选项(需开启「保存功能首选项」才能跨重启保留)。
+     点选数值 = 当前容器内物品总重量 (curLoad) 及其变体。 */
+  function capInfo() {
+    var c = containers();
+    if (!c) { T("容器未就绪 (请先进入游戏)"); return; }
+    T("背包 " + c.bag.getCurLoad() + "/" + c.bag.getMaxLoad()
+      + "  |  仓库 " + c.wh.getCurLoad() + "/" + c.wh.getMaxLoad());
+  }
+  function refreshCapUI() {
+    ok(function () {
+      var DM = R("HYDialogMgr");
+      var d = DM && DM.getDialog("PanelWareHouse");
+      if (d && d.getComponent) { var c = d.getComponent(d.name || "PanelWareHouse"); c && c.updateWeight && c.updateWeight(); }
+    }, "capUI");
+  }
+  /* ---- 背包 ---- */
+  function applyBagCap(target) {
+    var HP = R("HYPlayer"), HD = R("HYData"), HC = R("HYContainer");
+    if (!HP || !HD || !HC || !HC.HYBag) { T("背包未就绪 (请先进入游戏)"); return; }
+    var applied = 0;
+    function apply(nat) {
+      if (applied++) return;
+      ok(function () {
+        var extra = parseInt(HD.get("base.bag.extraLoad"), 10) || 0;
+        HD.set("base.bag.extraLoad", extra + (target - nat));
+        HC.HYBag.setMaxLoad(target);
+        M.vals.cap_bag_val = String(target); saveVals();
+        T("背包容量 = " + target + " (原生 " + nat + ")");
+        refreshCapUI();
+        if (cfg.autoSave) HD.trySave();
+      }, "setBagCap");
+    }
+    ok(function () { HP.getMaxLoad(null, apply); }, "bagNat");
+    setTimeout(function () { if (!applied) apply(HC.HYBag.getMaxLoad()); }, 400);
+  }
+  function restoreBagCap() {
+    var HD = R("HYData"), HC = R("HYContainer"), HP = R("HYPlayer");
+    if (!HD || !HC || !HC.HYBag) { T("背包未就绪"); return; }
+    ok(function () { HD.set("base.bag.extraLoad", 0); });
+    ok(function () {
+      HP.getMaxLoad(null, function (nat) {
+        ok(function () { HC.HYBag.setMaxLoad(nat); });
+        T("背包容量已恢复原生: " + nat);
+        refreshCapUI();
+      });
+    });
+    if (cfg.autoSave) ok(function () { HD.trySave(); });
+  }
+  /* ---- 仓库 ---- */
+  function installWhCapHook() {
+    var HB = R("HYBuild");
+    if (!HB || HB.__hymodWhCap || !HB.getWareHouseMaxLoad) return;
+    HB.__hymodWhCap = 1;
+    var raw = HB.getWareHouseMaxLoad;
+    HB.getWareHouseMaxLoad = function (cb) {
+      var want = parseInt(M.vals.wh_cap, 10) || 0;
+      if (!(want > 0)) return raw.apply(this, arguments);
+      return raw.call(this, function (nat) {
+        log("仓库容量 hook: 原生 " + nat + " -> " + want);
+        try { cb && cb(want); } catch (e) { log("whCap cb " + e); }
+      });
+    };
+    log("HYBuild.getWareHouseMaxLoad 已挂钩 (R19 仓库容量)");
+  }
+  M.installWhCapHook = installWhCapHook;
+  function applyWhCap(target) {
+    var HC = R("HYContainer");
+    M.vals.wh_cap = String(target); saveVals();
+    installWhCapHook();
+    if (HC && HC.HYWarehouse) { ok(function () { HC.HYWarehouse.setMaxLoad(target); }); }
+    T("仓库容量 = " + target + " (MOD 侧, 重启需开启「保存功能首选项」)");
+    refreshCapUI();
+  }
+  function restoreWhCap() {
+    var HC = R("HYContainer"), HB = R("HYBuild");
+    delete M.vals.wh_cap; saveVals();
+    ok(function () {
+      HB.getWareHouseMaxLoad(function (nat) {
+        if (HC && HC.HYWarehouse) ok(function () { HC.HYWarehouse.setMaxLoad(nat); });
+        T("仓库容量已恢复原生: " + nat);
+        refreshCapUI();
+      });
+    });
+  }
+  /* ---- 点选数值 (含当前总重量) ---- */
+  function capPickItems(wh, cb) {
+    var c = containers();
+    if (!c) { T("容器未就绪 (请先进入游戏)"); return; }
+    var box = wh ? c.wh : c.bag;
+    var cur = parseInt(ok(function () { return box.getCurLoad(); }) || 0, 10) || 0;
+    var max = parseInt(ok(function () { return box.getMaxLoad(); }) || 0, 10) || 0;
+    var cand = [cur, cur + 1000, cur * 2, max, 10000, 99999];
+    var arr = [], seen = {};
+    for (var i = 0; i < cand.length; i++) {
+      if (!(cand[i] > 0)) continue;
+      var v = Math.floor(cand[i]);
+      if (seen[v]) continue;
+      seen[v] = 1;
+      var tag = (v === cur) ? "  <= 当前" + (wh ? "仓库" : "背包") + "总重量" : "";
+      arr.push([String(v), (wh ? "仓库" : "背包") + "容量 " + v + tag, ""]);
+    }
+    cb(arr);
+  }
+  M.capInfo = capInfo; M.applyBagCap = applyBagCap; M.applyWhCap = applyWhCap; M.capPickItems = capPickItems;
+  M.restoreBagCap = restoreBagCap; M.restoreWhCap = restoreWhCap;
+
   function buildPickerItems(cb) {
     buildComIds(function (coms, cur) {
       var arr = [];
@@ -1581,7 +1787,15 @@ function buildMenu() {
     { type: "button", id: "clear_bag", title: "清空背包" },
     { type: "button", id: "compact", title: "整理堆叠 (合并重复的装备/药剂等)" },
     { type: "button", id: "coin_add", title: "金币 +99999 / 银币 +99999 (邮件领取)" },
-    { type: "text", title: "货币通过游戏原生邮件接口创建并领取(与「货币恢复」邮件同通道); 大额金币已修复归零问题" }
+    { type: "text", title: "货币通过游戏原生邮件接口创建并领取(与「货币恢复」邮件同通道); 大额金币已修复归零问题" },
+    { type: "button", id: "cap_info", title: "查看当前 背包/仓库 容量与总重量" },
+    { type: "input", id: "cap_bag_val", title: "背包容量 (0 或空=恢复原生自动)", val: String(pv("cap_bag_val", "")), hint: "如 5000" },
+    { type: "button", id: "cap_bag_set", title: "应用 -> 背包容量" },
+    { type: "button", id: "cap_bag_pick", title: "点选数值 -> 背包容量 (含当前总重量)" },
+    { type: "input", id: "cap_wh_val", title: "仓库容量 (0 或空=恢复原生自动)", val: String(pv("cap_wh_val", "")), hint: "如 20000" },
+    { type: "button", id: "cap_wh_set", title: "应用 -> 仓库容量" },
+    { type: "button", id: "cap_wh_pick", title: "点选数值 -> 仓库容量 (含当前总重量)" },
+    { type: "text", title: "背包容量写入游戏存档(永久); 仓库容量为 MOD 侧加成, 跨重启需开启「保存功能首选项」" }
   ]});
 
   /* ---- 角色 ---- */
@@ -1720,6 +1934,8 @@ function onPick(ids, count) {
       setTimeout(pushMenu, 200);
       break;
     case "pet": petGrant(ids); break;
+    case "cap_bag": applyBagCap(parseInt(ids[0], 10) || 0); break;
+    case "cap_wh": applyWhCap(parseInt(ids[0], 10) || 0); break;
     default: giveItems(ids, n, "warehouse");
   }
 }
@@ -1734,6 +1950,7 @@ function applyBuildLevel(ids, lv) {
     ok(function () {
       HB.getBuildMaxLevel(com, function (max) {
         var to = (lv > 1 && lv < 100) ? lv : max;
+        if (max > 0 && (to <= 0 || to > max)) to = max; /* R18: 不得超过档案等级上限 */
         if (to > 0) { HB.updateBuildLevel(com, to); n++; }
       });
     });
@@ -1748,6 +1965,35 @@ function applyAchievements(ids) {
   });
 }
 
+/* ================= R20: 首选项重启后真正生效 =================
+   旧实现: boot() 只安装 hook 不按已保存的 M.vals 恢复 buff/cfg ->
+   重启后开关显示"开"(Java 从 M.vals 渲染), 但 buff 恒为初始 false, 实际未生效。
+   新实现: boot 时回放 M.vals 里的开关/数值, 再确保各 hook 已安装。 */
+function restorePrefs() {
+  var changed = [];
+  var bools = ["godMode", "oneHit", "moveOn", "lockAttrs", "freePay", "rbLock"];
+  for (var i = 0; i < bools.length; i++) {
+    var id = bools[i];
+    if (M.vals[id] === undefined) continue;
+    var v = sv(id, false);
+    if (buff[id] !== v) { buff[id] = v; changed.push(id + "=" + (v ? 1 : 0)); }
+  }
+  var cfgs = ["safeLog", "noHotfix", "safeUpdate", "safeCoin", "autoSave"];
+  for (var j = 0; j < cfgs.length; j++) {
+    var cid = cfgs[j];
+    if (M.vals[cid] === undefined) continue;
+    var cv = sv(cid, cfg[cid]);
+    if (cfg[cid] !== cv) { cfg[cid] = cv; changed.push(cid + "=" + (cv ? 1 : 0)); }
+  }
+  if (M.vals.moveMul !== undefined) {
+    var mm = Math.max(100, nv("moveMul", 300));
+    if (buff.moveMul !== mm) { buff.moveMul = mm; changed.push("moveMul=" + mm); }
+  }
+  installCombatHooks(); installMoveHooks(); installStateHooks();
+  log("首选项已恢复: " + (changed.join(", ") || "无(全默认)"));
+}
+M.restorePrefs = restorePrefs;
+
 /* ================= 消息分发 ================= */
 function dispatch(id, val) {
   log("ON " + id + " = " + val);
@@ -1759,6 +2005,14 @@ function dispatch(id, val) {
     case "bag_to_wh": bagToWarehouse(); break;
     case "clear_bag": clearBag(); break;
     case "compact": compactStacks(); break;
+    /* R19: 容量 */
+    case "cap_info": capInfo(); break;
+    case "cap_bag_set": { var cbv = nv("cap_bag_val", 0); if (cbv > 0) applyBagCap(cbv); else restoreBagCap(); break; }
+    case "cap_wh_set": { var cwv = nv("cap_wh_val", 0); if (cwv > 0) applyWhCap(cwv); else restoreWhCap(); break; }
+    case "cap_bag_pick": capPickItems(false, function (arr) { openPicker("cap_bag", "选择背包容量数值", arr, { single: true, okText: "应 用 容 量" }); }); break;
+    case "cap_wh_pick": capPickItems(true, function (arr) { openPicker("cap_wh", "选择仓库容量数值", arr, { single: true, okText: "应 用 容 量" }); }); break;
+    case "cap_bag_val": case "cap_wh_val": M.vals[id] = val; saveVals(); break;
+    case "wh_cap": break;
     case "coin_add": grantCurrency(99999, 99999); break;
     /* 角色 */
     case "role_all": roleAll(); break;
@@ -1824,7 +2078,7 @@ M.dispatch = dispatch;
 /* ================= 与 Java 层通信 ================= */
 window.HYMOD_ON = function (id, val) {
   try {
-    if (id !== "all_cnt" && id !== "moveMul") { M.vals[id] = val; saveVals(); }
+    if (id !== "all_cnt") { M.vals[id] = val; saveVals(); } /* R20: moveMul 也要记住 */
     dispatch(String(id), val);
   } catch (e) { log("HYMOD_ON " + id + " 出错: " + e); T("执行出错: " + e); }
 };
@@ -1926,11 +2180,14 @@ function boot() {
   installStackPatch();
   installTechPanelHook();
   installShopPatch();
+  installBuildPatch();
+  installWhCapHook();
+  restorePrefs();
   M.ready = true;
   log("MOD v" + M.ver + " 已加载 (原生菜单)");
   log("模块自检: " + M.diag());
   setTimeout(function () { pushMenu(); }, 400);
-  setInterval(function () { installSafeHooks(); installNoBanHooks(); patchDict(); installStackPatch(); installTechPanelHook(); installShopPatch(); }, 5000);
+  setInterval(function () { installSafeHooks(); installNoBanHooks(); patchDict(); installStackPatch(); installTechPanelHook(); installShopPatch(); installBuildPatch(); installWhCapHook(); }, 5000);
 }
 M.boot = boot;
 setTimeout(boot, 800);
