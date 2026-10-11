@@ -498,6 +498,7 @@ public class ModMenu {
     private JSONObject pickMeta = new JSONObject();
     private int pickTarget = 0;   // 0=背包 1=仓库
     private LinearLayout pickLine2;
+    private LinearLayout pickLineCnt;
     private TextView pickOk;
     private boolean pickSingle = false;
     private HashMap<String, Bitmap> iconCache = new HashMap<String, Bitmap>();
@@ -528,6 +529,7 @@ public class ModMenu {
             pickSingle = o.optBoolean("single", false);
             if (pickOk != null) pickOk.setText(o.optString("okText", "确 认 发 放"));
             if (pickLine2 != null) pickLine2.setVisibility(o.optBoolean("hideTarget", false) ? View.GONE : View.VISIBLE);
+            if (pickLineCnt != null) pickLineCnt.setVisibility(o.optBoolean("hideCount", false) ? View.GONE : View.VISIBLE);
             pickTitle.setText(o.optString("title", "选择物品") + "  (共" + pickItems.size() + ")");
             pickTarget = 0;
             updateTargetUI();
@@ -597,14 +599,22 @@ public class ModMenu {
         pickTargetWh.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickTarget = 1; updateTargetUI(); } });
         line2.addView(pickTargetBag);
         line2.addView(pickTargetWh);
-        line2.addView(tv("数量:", 12, C_TXT, false));
-        pickCount = new EditText(act);
-        pickCount.setText("99");
-        styleInput(pickCount, InputType.TYPE_CLASS_NUMBER);
-        pickCount.setSingleLine(true);
-        line2.addView(pickCount, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         pickLine2 = line2;
         p.addView(line2);
+
+        /* R24: 数量输入框独立成行, 不随目标按钮一起隐藏 (发放数量在选择器内直接可改) */
+        LinearLayout lineCnt = new LinearLayout(act);
+        lineCnt.setOrientation(LinearLayout.HORIZONTAL);
+        lineCnt.setGravity(Gravity.CENTER_VERTICAL);
+        lineCnt.addView(tv("数量:", 12, C_TXT, false));
+        pickCount = new EditText(act);
+        pickCount.setText("99");
+        pickCount.setHint("99");
+        styleInput(pickCount, InputType.TYPE_CLASS_NUMBER);
+        pickCount.setSingleLine(true);
+        lineCnt.addView(pickCount, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        pickLineCnt = lineCnt;
+        p.addView(lineCnt);
 
         LinearLayout line3 = new LinearLayout(act);
         line3.setOrientation(LinearLayout.HORIZONTAL);
