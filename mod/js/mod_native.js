@@ -2121,8 +2121,8 @@
       M.vals["fa_" + all[i][0]] = (v === null) ? "" : String(v);
       if (v !== null) n++;
     }
-    saveVals();
     T("已读取 " + roleNameByIndex(idx) + " 的 " + n + " 项属性到输入框, 改完点「应用」");
+    /* R25: fa_* 不写入首选项 (saveVals), 仅本次运行内有效 */
     setTimeout(function () { pushMenu(); }, 200);
   }
   function fightAttrsApply() {
@@ -2543,7 +2543,11 @@ M.dispatch = dispatch;
 /* ================= 与 Java 层通信 ================= */
 window.HYMOD_ON = function (id, val) {
   try {
-    M.vals[id] = val; saveVals(); /* R20/R24: 所有输入项 (含 all_cnt) 都要记住 */
+    M.vals[id] = val;
+    /* R20/R24: 所有输入项 (含 all_cnt) 都要记住; R25: fa_* 是一次性目标值
+       (写入即落盘到角色 exAttr), 不进首选项持久化 —— 避免重启后
+       把陈旧快照当成当前意图误应用。 */
+    if (String(id).indexOf("fa_") !== 0) saveVals();
     dispatch(String(id), val);
   } catch (e) { log("HYMOD_ON " + id + " 出错: " + e); T("执行出错: " + e); }
 };
