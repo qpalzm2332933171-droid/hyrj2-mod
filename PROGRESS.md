@@ -343,9 +343,10 @@ else               for(...) d.Monster.createNew(n[S], l)          // PVE 敌人�
 ### 版本
 - `mod_native.js` ver **1.0.4**; GitHub Release **v1.0.4** (tag + 直装 APK 资产);
   README 更新功能清单 + `docs/images/` 三张实拍截图。
-- `mod_native.js` ver **1.0.5** (jsc 1031560 B, md5 `dcfcf21fd69aaf07958339c6a2efbc6c`);
-  GitHub Release **v1.0.5**; 直装 APK `dist/荒野日记_MOD.apk` 106,392,846 B (309 项物品图标);
-  阶段 8 十七项修复全部实机回归通过 (见下)。
+- `mod_native.js` ver **1.0.5** (jsc 1031892 B, md5 `61ff94003bb16cdb017af1cfe59593b9`);
+  GitHub Release **v1.0.5** (asset `hyrj2-mod-v1.0.5.apk`, 106,392,846 B);
+  直装 APK `dist/荒野日记_MOD.apk` (309 项物品图标);
+  阶段 8 十七项修复实机回归 + R13 原生回写拦截复测通过 (见下)。
 
 ---
 
